@@ -1,0 +1,12 @@
+target/
+
+*.class
+
+.idea/
+.vscode/
+
+.DS_Store
+Thumbs.db
+
+node_modules/
+dist/

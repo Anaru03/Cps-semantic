@@ -1,5 +1,9 @@
 grammar Compiscript;
 
+@header {
+package antlr;
+}
+
 // ------------------
 // Parser Rules
 // ------------------

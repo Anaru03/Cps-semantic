@@ -35,4 +35,31 @@ class TipoTest {
     void unknownNoDebeIdentificarseComoError() {
         assertFalse(Tipo.UNKNOWN.esError());
     }
+    @Test
+    void tiposIgualesDebenSerCompatibles() {
+        assertTrue(
+                Tipo.INTEGER.esCompatibleCon(Tipo.INTEGER)
+        );
+    }
+
+    @Test
+    void tiposDiferentesNoDebenSerCompatibles() {
+        assertFalse(
+                Tipo.INTEGER.esCompatibleCon(Tipo.STRING)
+        );
+    }
+
+    @Test
+    void unknownNoDebeSerCompatible() {
+        assertFalse(
+                Tipo.INTEGER.esCompatibleCon(Tipo.UNKNOWN)
+        );
+    }
+
+    @Test
+    void errorNoDebeSerCompatible() {
+        assertFalse(
+                Tipo.INTEGER.esCompatibleCon(Tipo.ERROR)
+        );
+    }
 }

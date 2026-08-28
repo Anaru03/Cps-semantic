@@ -128,4 +128,56 @@ public class TipoVisitor extends CompiscriptBaseVisitor<Tipo> {
 
         return Tipo.BOOLEAN;
     }
+
+    @Override
+    public Tipo visitAdditiveExpr(CompiscriptParser.AdditiveExprContext ctx) {
+        Tipo izquierdo = visit(ctx.multiplicativeExpr(0));
+
+        if (ctx.multiplicativeExpr().size() == 1) {
+            return izquierdo;
+        }
+
+        for (int i = 1; i < ctx.multiplicativeExpr().size(); i++) {
+            Tipo derecho = visit(ctx.multiplicativeExpr(i));
+
+            if (izquierdo == Tipo.ERROR || derecho == Tipo.ERROR) {
+                return Tipo.ERROR;
+            }
+
+            if (!izquierdo.esNumerico() || !derecho.esNumerico()) {
+                return Tipo.ERROR;
+            }
+
+            izquierdo = Tipo.INTEGER;
+        }
+
+        return izquierdo;
+    }
+
+    @Override
+    public Tipo visitMultiplicativeExpr(
+            CompiscriptParser.MultiplicativeExprContext ctx
+    ) {
+        Tipo izquierdo = visit(ctx.unaryExpr(0));
+
+        if (ctx.unaryExpr().size() == 1) {
+            return izquierdo;
+        }
+
+        for (int i = 1; i < ctx.unaryExpr().size(); i++) {
+            Tipo derecho = visit(ctx.unaryExpr(i));
+
+            if (izquierdo == Tipo.ERROR || derecho == Tipo.ERROR) {
+                return Tipo.ERROR;
+            }
+
+            if (!izquierdo.esNumerico() || !derecho.esNumerico()) {
+                return Tipo.ERROR;
+            }
+
+            izquierdo = Tipo.INTEGER;
+        }
+
+        return izquierdo;
+    }
 }

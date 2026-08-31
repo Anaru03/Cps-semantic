@@ -41,6 +41,18 @@ Actualmente el sistema permite:
 - Representar errores y resultados semánticos
 - Recorrer el árbol sintáctico mediante un Visitor de ANTLR
 - Ejecutar pruebas automatizadas para casos válidos e inválidos
+- Registrar símbolos para variables, constantes, parámetros, funciones, clases, atributos y métodos
+- Resolver identificadores a través de ámbitos globales, de función, clase y bloque
+- Validar llamadas, argumentos, retornos, recursión, closures y declaraciones duplicadas
+- Validar instanciación, constructores, acceso a miembros y el uso contextual de `this`
+
+El punto de entrada del análisis completo es:
+
+```java
+AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
+ResultadoSemantico resultado = analisis.resultado();
+Ambito tablaGlobal = analisis.ambitoGlobal();
+```
 
 ---
 

@@ -18,6 +18,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     private Ambito actual = global;
     private Simbolo funcionActual;
     private Simbolo claseActual;
+    private boolean enBucle = false;
 
     public static AnalisisSemantico analizar(String fuente) {
         CompiscriptParser parser = new CompiscriptParser(new CommonTokenStream(
@@ -30,6 +31,15 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     private void error(ParserRuleContext ctx, String mensaje) {
         errores.add(new ErrorSemantico(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), mensaje));
     }
+    /** Registra un error semantico y devuelve TipoDato.ERROR, para usar directamente en un return. */
+    private TipoDato errorTipo(ParserRuleContext ctx, String mensaje) {
+        error(ctx, mensaje);
+        return TipoDato.ERROR;
+    }
+    private boolean esNumerico(TipoDato t) { return t.base() == Tipo.INTEGER || t.base() == Tipo.FLOAT; }
+    private TipoDato promocionNumerica(TipoDato a, TipoDato b) {
+        return (a.base() == Tipo.FLOAT || b.base() == Tipo.FLOAT) ? TipoDato.FLOAT : TipoDato.INTEGER;
+    }
     private void declarar(ParserRuleContext ctx, Simbolo simbolo) {
         if (!actual.declarar(simbolo)) error(ctx, "El identificador '" + simbolo.nombre() + "' ya fue declarado en este ambito");
     }
@@ -37,7 +47,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         if (ctx == null) return TipoDato.UNKNOWN;
         String base = ctx.baseType().getText();
         TipoDato t = switch (base) {
-            case "integer" -> TipoDato.INTEGER; case "string" -> TipoDato.STRING;
+            case "integer" -> TipoDato.INTEGER; case "float" -> TipoDato.FLOAT; case "string" -> TipoDato.STRING;
             case "boolean" -> TipoDato.BOOLEAN; default -> TipoDato.clase(base);
         };
         for (int i = 1; i < ctx.getChildCount(); i += 2) t = TipoDato.arreglo(t);
@@ -49,11 +59,21 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
 
     @Override public TipoDato visitBlock(CompiscriptParser.BlockContext ctx) {
         Ambito anterior = actual; actual = new Ambito("bloque", anterior);
-        for (var s : ctx.statement()) visit(s);
+        visitarSentencias(ctx.statement());
         actual = anterior; return TipoDato.VOID;
     }
     private void visitarBloqueSinNuevoAmbito(CompiscriptParser.BlockContext ctx) {
-        for (var s : ctx.statement()) visit(s);
+        visitarSentencias(ctx.statement());
+    }
+    /** Visita una lista de sentencias y marca como codigo muerto todo lo que venga
+     *  despues de un return/break/continue dentro del mismo bloque. */
+    private void visitarSentencias(List<CompiscriptParser.StatementContext> sentencias) {
+        boolean inalcanzable = false;
+        for (var s : sentencias) {
+            if (inalcanzable) error(s, "Codigo muerto: esta instruccion nunca se ejecuta");
+            visit(s);
+            if (s.returnStatement() != null || s.breakStatement() != null || s.continueStatement() != null) inalcanzable = true;
+        }
     }
     @Override public TipoDato visitVariableDeclaration(CompiscriptParser.VariableDeclarationContext ctx) {
         TipoDato declarado = tipoAnotado(ctx.typeAnnotation());
@@ -126,6 +146,213 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         return valor;
     }
 
+    // ---------------------------------------------------------------
+    // Operadores: aritmeticos, logicos, comparaciones y ternario
+    // ---------------------------------------------------------------
+
+    @Override public TipoDato visitLogicalOrExpr(CompiscriptParser.LogicalOrExprContext ctx) {
+        TipoDato resultado = visit(ctx.logicalAndExpr(0));
+        for (int i = 1; i < ctx.logicalAndExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.logicalAndExpr(i));
+            if (resultado.base() != Tipo.BOOLEAN || derecho.base() != Tipo.BOOLEAN)
+                return errorTipo(ctx, "Los operandos de '||' deben ser boolean, se obtuvo " + resultado + " y " + derecho);
+            resultado = TipoDato.BOOLEAN;
+        }
+        return resultado;
+    }
+
+    @Override public TipoDato visitLogicalAndExpr(CompiscriptParser.LogicalAndExprContext ctx) {
+        TipoDato resultado = visit(ctx.equalityExpr(0));
+        for (int i = 1; i < ctx.equalityExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.equalityExpr(i));
+            if (resultado.base() != Tipo.BOOLEAN || derecho.base() != Tipo.BOOLEAN)
+                return errorTipo(ctx, "Los operandos de '&&' deben ser boolean, se obtuvo " + resultado + " y " + derecho);
+            resultado = TipoDato.BOOLEAN;
+        }
+        return resultado;
+    }
+
+    @Override public TipoDato visitEqualityExpr(CompiscriptParser.EqualityExprContext ctx) {
+        TipoDato izquierdo = visit(ctx.relationalExpr(0));
+        if (ctx.relationalExpr().size() == 1) return izquierdo;
+        for (int i = 1; i < ctx.relationalExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.relationalExpr(i));
+            if (!izquierdo.compatibleCon(derecho)) return errorTipo(ctx, "No se puede comparar " + izquierdo + " con " + derecho);
+            izquierdo = derecho;
+        }
+        return TipoDato.BOOLEAN;
+    }
+
+    @Override public TipoDato visitRelationalExpr(CompiscriptParser.RelationalExprContext ctx) {
+        TipoDato izquierdo = visit(ctx.additiveExpr(0));
+        if (ctx.additiveExpr().size() == 1) return izquierdo;
+        for (int i = 1; i < ctx.additiveExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.additiveExpr(i));
+            if (!esNumerico(izquierdo) || !esNumerico(derecho))
+                return errorTipo(ctx, "Los operandos de una comparacion relacional deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
+            izquierdo = derecho;
+        }
+        return TipoDato.BOOLEAN;
+    }
+
+    @Override public TipoDato visitAdditiveExpr(CompiscriptParser.AdditiveExprContext ctx) {
+        TipoDato izquierdo = visit(ctx.multiplicativeExpr(0));
+        for (int i = 1; i < ctx.multiplicativeExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.multiplicativeExpr(i));
+            if (!esNumerico(izquierdo) || !esNumerico(derecho))
+                return errorTipo(ctx, "Los operandos de '+'/'-' deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
+            izquierdo = promocionNumerica(izquierdo, derecho);
+        }
+        return izquierdo;
+    }
+
+    @Override public TipoDato visitMultiplicativeExpr(CompiscriptParser.MultiplicativeExprContext ctx) {
+        TipoDato izquierdo = visit(ctx.unaryExpr(0));
+        for (int i = 1; i < ctx.unaryExpr().size(); i++) {
+            TipoDato derecho = visit(ctx.unaryExpr(i));
+            if (!esNumerico(izquierdo) || !esNumerico(derecho))
+                return errorTipo(ctx, "Los operandos de '*'/'/'/'%' deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
+            izquierdo = promocionNumerica(izquierdo, derecho);
+        }
+        return izquierdo;
+    }
+
+    @Override public TipoDato visitUnaryExpr(CompiscriptParser.UnaryExprContext ctx) {
+        if (ctx.getChildCount() == 2) {
+            String operador = ctx.getChild(0).getText();
+            TipoDato operando = visit(ctx.unaryExpr());
+            if ("!".equals(operador))
+                return operando.base() == Tipo.BOOLEAN ? TipoDato.BOOLEAN : errorTipo(ctx, "El operador '!' requiere un operando boolean, se obtuvo " + operando);
+            if ("-".equals(operador))
+                return esNumerico(operando) ? operando : errorTipo(ctx, "El operador '-' unario requiere un operando integer o float, se obtuvo " + operando);
+        }
+        return visitChildren(ctx);
+    }
+
+    @Override public TipoDato visitTernaryExpr(CompiscriptParser.TernaryExprContext ctx) {
+        TipoDato condicion = visit(ctx.logicalOrExpr());
+        if (ctx.expression().isEmpty()) return condicion;
+        if (condicion.base() != Tipo.BOOLEAN) error(ctx, "La condicion del operador ternario debe ser boolean, se obtuvo " + condicion);
+        TipoDato siVerdadero = visit(ctx.expression(0));
+        TipoDato siFalso = visit(ctx.expression(1));
+        if (!siVerdadero.compatibleCon(siFalso))
+            return errorTipo(ctx, "Las dos ramas del operador ternario deben ser del mismo tipo, se obtuvo " + siVerdadero + " y " + siFalso);
+        return siVerdadero;
+    }
+
+    // ---------------------------------------------------------------
+    // Control de flujo
+    // ---------------------------------------------------------------
+
+    private void validarCondicionBooleana(ParserRuleContext etiqueta, CompiscriptParser.ExpressionContext condExpr, String construccion) {
+        TipoDato condicion = visit(condExpr);
+        if (condicion.base() != Tipo.BOOLEAN) error(etiqueta, "La condicion del " + construccion + " debe ser boolean, se obtuvo " + condicion);
+    }
+
+    @Override public TipoDato visitIfStatement(CompiscriptParser.IfStatementContext ctx) {
+        validarCondicionBooleana(ctx, ctx.expression(), "if");
+        visit(ctx.block(0));
+        if (ctx.block().size() > 1) visit(ctx.block(1));
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitWhileStatement(CompiscriptParser.WhileStatementContext ctx) {
+        validarCondicionBooleana(ctx, ctx.expression(), "while");
+        boolean bucleAnterior = enBucle; enBucle = true;
+        visit(ctx.block());
+        enBucle = bucleAnterior;
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitDoWhileStatement(CompiscriptParser.DoWhileStatementContext ctx) {
+        boolean bucleAnterior = enBucle; enBucle = true;
+        visit(ctx.block());
+        enBucle = bucleAnterior;
+        validarCondicionBooleana(ctx, ctx.expression(), "do-while");
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitForStatement(CompiscriptParser.ForStatementContext ctx) {
+        Ambito anterior = actual; actual = new Ambito("for", anterior);
+        if (ctx.variableDeclaration() != null) visit(ctx.variableDeclaration());
+        else if (ctx.assignment() != null) visit(ctx.assignment());
+
+        // El init (variableDeclaration | assignment | ';') es siempre el hijo 2 (indice 2),
+        // ya que 'for' y '(' ocupan los indices 0 y 1. A partir de ahi, la primera expresion
+        // encontrada antes del ';' propio del for es la condicion; la siguiente es el incremento.
+        CompiscriptParser.ExpressionContext condicion = null;
+        CompiscriptParser.ExpressionContext incremento = null;
+        boolean pasoPuntoYComa = false;
+        for (int i = 3; i < ctx.getChildCount(); i++) {
+            var hijo = ctx.getChild(i);
+            if (hijo instanceof CompiscriptParser.ExpressionContext expr) {
+                if (!pasoPuntoYComa) condicion = expr; else incremento = expr;
+            } else if (";".equals(hijo.getText())) {
+                pasoPuntoYComa = true;
+            }
+        }
+        if (condicion != null) validarCondicionBooleana(ctx, condicion, "for");
+
+        boolean bucleAnterior = enBucle; enBucle = true;
+        visit(ctx.block());
+        enBucle = bucleAnterior;
+        if (incremento != null) visit(incremento);
+
+        actual = anterior;
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitForeachStatement(CompiscriptParser.ForeachStatementContext ctx) {
+        TipoDato iterable = visit(ctx.expression());
+        TipoDato elemento;
+        if (iterable.base() == Tipo.ARRAY) {
+            elemento = iterable.elemento();
+        } else {
+            error(ctx, "foreach requiere una expresion de tipo arreglo, se obtuvo " + iterable);
+            elemento = TipoDato.ERROR;
+        }
+        Ambito anterior = actual; actual = new Ambito("foreach", anterior);
+        declarar(ctx, new Simbolo(ctx.Identifier().getText(), elemento, CategoriaSimbolo.VARIABLE, actual));
+        boolean bucleAnterior = enBucle; enBucle = true;
+        visit(ctx.block());
+        enBucle = bucleAnterior;
+        actual = anterior;
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {
+        TipoDato tipoSwitch = visit(ctx.expression());
+        Ambito anterior = actual; actual = new Ambito("switch", anterior);
+        for (var c : ctx.switchCase()) {
+            TipoDato tipoCase = visit(c.expression());
+            if (!tipoSwitch.compatibleCon(tipoCase))
+                error(c, "El tipo del case (" + tipoCase + ") no coincide con el tipo del switch (" + tipoSwitch + ")");
+            visitarSentencias(c.statement());
+        }
+        if (ctx.defaultCase() != null) visitarSentencias(ctx.defaultCase().statement());
+        actual = anterior;
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitBreakStatement(CompiscriptParser.BreakStatementContext ctx) {
+        if (!enBucle) error(ctx, "'break' solo puede utilizarse dentro de un bucle");
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitContinueStatement(CompiscriptParser.ContinueStatementContext ctx) {
+        if (!enBucle) error(ctx, "'continue' solo puede utilizarse dentro de un bucle");
+        return TipoDato.VOID;
+    }
+
+    @Override public TipoDato visitTryCatchStatement(CompiscriptParser.TryCatchStatementContext ctx) {
+        visit(ctx.block(0));
+        Ambito anterior = actual; actual = new Ambito("catch", anterior);
+        declarar(ctx, new Simbolo(ctx.Identifier().getText(), TipoDato.UNKNOWN, CategoriaSimbolo.VARIABLE, actual));
+        visit(ctx.block(1));
+        actual = anterior;
+        return TipoDato.VOID;
+    }
+
     @Override public TipoDato visitClassDeclaration(CompiscriptParser.ClassDeclarationContext ctx) {
         String nombre = ctx.Identifier(0).getText(); Ambito miembros = new Ambito("clase " + nombre, actual);
         Simbolo clase = new Simbolo(nombre, TipoDato.clase(nombre), CategoriaSimbolo.CLASE, actual, List.of(), miembros);
@@ -182,6 +409,13 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
                 invocable = null;
             }
         }
+        if (ctx.suffixOp().isEmpty() && invocable != null
+                && (invocable.categoria() == CategoriaSimbolo.FUNCION
+                    || invocable.categoria() == CategoriaSimbolo.METODO
+                    || invocable.categoria() == CategoriaSimbolo.CLASE)) {
+            error(ctx, "'" + invocable.nombre() + "' no se puede utilizar como valor sin invocarlo");
+            corriente = TipoDato.ERROR;
+        }
         return corriente;
     }
     private void validarArgumentos(ParserRuleContext ctx, Simbolo funcion, List<CompiscriptParser.ExpressionContext> args) {
@@ -202,7 +436,8 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
             return TipoDato.arreglo(e);
         }
         String s=ctx.getText(); if (s.equals("true")||s.equals("false")) return TipoDato.BOOLEAN;
-        if (s.equals("null")) return TipoDato.NULL; if (s.startsWith("\"")) return TipoDato.STRING; return TipoDato.INTEGER;
+        if (s.equals("null")) return TipoDato.NULL; if (s.startsWith("\"")) return TipoDato.STRING;
+        if (s.indexOf('.') >= 0) return TipoDato.FLOAT; return TipoDato.INTEGER;
     }
     @Override public TipoDato visitChildren(org.antlr.v4.runtime.tree.RuleNode node) {
         TipoDato r = TipoDato.UNKNOWN;

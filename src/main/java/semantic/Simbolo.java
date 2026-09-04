@@ -30,4 +30,9 @@ public final class Simbolo {
     public Ambito ambito() { return ambito; }
     public List<TipoDato> parametros() { return parametros; }
     public Ambito miembros() { return miembros; }
+
+    /** Crea una copia de este simbolo con un tipo distinto, preservando el resto de la informacion. */
+    public Simbolo conTipo(TipoDato nuevoTipo) {
+        return new Simbolo(nombre, nuevoTipo, categoria, ambito, parametros, miembros);
+    }
 }

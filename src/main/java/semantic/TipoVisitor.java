@@ -21,6 +21,10 @@ public class TipoVisitor extends CompiscriptBaseVisitor<Tipo> {
             return Tipo.STRING;
         }
 
+        if (texto.matches("[0-9]+\\.[0-9]+")) {
+            return Tipo.FLOAT;
+        }
+
         if (texto.matches("[0-9]+")) {
             return Tipo.INTEGER;
         }
@@ -148,7 +152,7 @@ public class TipoVisitor extends CompiscriptBaseVisitor<Tipo> {
                 return Tipo.ERROR;
             }
 
-            izquierdo = Tipo.INTEGER;
+            izquierdo = (izquierdo == Tipo.FLOAT || derecho == Tipo.FLOAT) ? Tipo.FLOAT : Tipo.INTEGER;
         }
 
         return izquierdo;
@@ -175,7 +179,7 @@ public class TipoVisitor extends CompiscriptBaseVisitor<Tipo> {
                 return Tipo.ERROR;
             }
 
-            izquierdo = Tipo.INTEGER;
+            izquierdo = (izquierdo == Tipo.FLOAT || derecho == Tipo.FLOAT) ? Tipo.FLOAT : Tipo.INTEGER;
         }
 
         return izquierdo;

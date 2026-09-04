@@ -5,6 +5,7 @@ import java.util.Objects;
 /** Tipo semantico que conserva el nombre de clases y el elemento de arreglos. */
 public record TipoDato(Tipo base, String nombreClase, TipoDato elemento) {
     public static final TipoDato INTEGER = simple(Tipo.INTEGER);
+    public static final TipoDato FLOAT = simple(Tipo.FLOAT);
     public static final TipoDato STRING = simple(Tipo.STRING);
     public static final TipoDato BOOLEAN = simple(Tipo.BOOLEAN);
     public static final TipoDato NULL = simple(Tipo.NULL);

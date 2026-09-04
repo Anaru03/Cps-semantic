@@ -3,6 +3,7 @@ package semantic;
 public enum Tipo {
 
     INTEGER,
+    FLOAT,
     STRING,
     BOOLEAN,
     NULL,
@@ -13,7 +14,7 @@ public enum Tipo {
     ERROR;
 
     public boolean esNumerico() {
-        return this == INTEGER;
+        return this == INTEGER || this == FLOAT;
     }
 
     public boolean esBooleano() {

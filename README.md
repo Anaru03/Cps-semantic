@@ -45,6 +45,20 @@ Actualmente el sistema permite:
 - Resolver identificadores a través de ámbitos globales, de función, clase y bloque
 - Validar llamadas, argumentos, retornos, recursión, closures y declaraciones duplicadas
 - Validar instanciación, constructores, acceso a miembros y el uso contextual de `this`
+- Validar operadores aritméticos, lógicos, relacionales, de igualdad y el operador ternario
+  dentro del flujo completo del analizador (con tabla de símbolos), no solo de forma aislada
+- Validar condiciones booleanas en `if`, `while`, `do-while`, `for` y ámbito propio del `for`
+- Validar `break`/`continue` solo dentro de bucles, y crear el ámbito de la variable en `foreach`
+- Validar el tipo del `case` contra el tipo del `switch`, y declarar la variable de `catch`
+- Detectar código muerto (instrucciones después de `return`, `break` o `continue`)
+- Detectar el uso de una función/clase como valor sin invocarla (p. ej. `f * 2` sin llamar a `f()`)
+- Actualizar información de un símbolo ya declarado en la tabla de símbolos (`Ambito.actualizar`)
+- Tipo `float`, con promoción numérica en operaciones aritméticas y relacionales (`integer + float -> float`)
+- IDE de escritorio (Swing) para escribir, compilar y ver el árbol sintáctico y la tabla de símbolos
+
+### Pendiente para el proyecto completo (100 pts)
+
+- Documentación de arquitectura: ver [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
 
 El punto de entrada del análisis completo es:
 
@@ -96,6 +110,7 @@ Actualmente se contemplan los siguientes tipos dentro del analizador:
 | Tipo | Uso |
 |---|---|
 | `INTEGER` | Valores enteros |
+| `FLOAT` | Valores de punto flotante |
 | `STRING` | Cadenas de texto |
 | `BOOLEAN` | Valores lógicos |
 | `NULL` | Valor nulo |
@@ -213,7 +228,39 @@ Arreglos:
 mvn -Dtest=ArreglosTest test
 ```
 
+Operadores (a través del analizador completo, con tabla de símbolos):
+
+```bash
+mvn -Dtest=OperadoresTest test
+```
+
+Control de flujo (`if`/`while`/`for`/`foreach`/`switch`/`break`/`continue`/código muerto):
+
+```bash
+mvn -Dtest=ControlFlujoTest test
+```
+
+Tabla de símbolos (insertar, recuperar, actualizar, manejo de alcances):
+
+```bash
+mvn -Dtest=TablaSimbolosTest test
+```
+
 ---
+
+## IDE
+
+El proyecto incluye un IDE de escritorio (Swing) para escribir código Compiscript, compilarlo
+y ver tanto los errores semánticos como una representación visual del árbol sintáctico y de la
+tabla de símbolos.
+
+```bash
+mvn compile exec:java
+```
+
+La ventana tiene un editor a la izquierda y tres pestañas a la derecha: **Errores**, **Árbol
+sintáctico** y **Tabla de símbolos**. `Ctrl+Enter` o el botón "Compilar" ejecutan el análisis
+completo sobre el código del editor. El código fuente está en `src/main/java/ide/CompiscriptIDE.java`.
 
 ## Cómo funciona
 
@@ -273,11 +320,10 @@ Esto permite comprobar que el analizador no solamente acepta construcciones corr
 
 ## Estado del proyecto
 
-El proyecto se encuentra actualmente **en desarrollo**.
-
-La base de ANTLR y el sistema de tipos ya se encuentran implementados y cuentan con pruebas automatizadas.
-
-Las siguientes etapas integrarán los demás componentes del análisis semántico, incluyendo tabla de símbolos, ámbitos, funciones, clases, control de flujo y el entorno visual del compilador.
+Los tres componentes de la rúbrica final están implementados: análisis sintáctico/semántico
+(sistema de tipos, ámbitos, funciones, clases, control de flujo, código muerto), tabla de
+símbolos (insertar, recuperar, actualizar, manejo de alcances) e IDE. La documentación de
+arquitectura está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
 ---
 

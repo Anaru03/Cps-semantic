@@ -31,6 +31,8 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
@@ -116,7 +118,7 @@ public final class CompiscriptIDE extends JFrame {
             });
             ParseTree arbol = parser.program();
             arbolSintactico.setModel(new DefaultTreeModel(nodoDelArbol(arbol, parser)));
-            expandirTodo(arbolSintactico);
+            expandirHasta(arbolSintactico, 2);
 
             if (!erroresSintaxis.isEmpty()) {
                 salida.setForeground(Color.RED.darker());
@@ -129,7 +131,7 @@ public final class CompiscriptIDE extends JFrame {
             AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
             ResultadoSemantico resultado = analisis.resultado();
             tablaSimbolos.setModel(new DefaultTreeModel(nodoDelAmbito(analisis.ambitoGlobal())));
-            expandirTodo(tablaSimbolos);
+            expandirHasta(tablaSimbolos, 3);
 
             if (resultado.esValido()) {
                 salida.setForeground(new Color(0, 128, 0));
@@ -173,8 +175,24 @@ public final class CompiscriptIDE extends JFrame {
         return raiz;
     }
 
-    private void expandirTodo(JTree arbol) {
-        for (int i = 0; i < arbol.getRowCount(); i++) arbol.expandRow(i);
+    /**
+     * Expande solo unos niveles. Expandir el arbol completo puede contener miles de
+     * nodos y provocar recursion en la capa de accesibilidad nativa de Swing en macOS.
+     */
+    private void expandirHasta(JTree arbol, int profundidadMaxima) {
+        Object raiz = arbol.getModel().getRoot();
+        if (raiz instanceof TreeNode nodo) {
+            expandirHasta(arbol, new TreePath(nodo), 0, profundidadMaxima);
+        }
+    }
+
+    private void expandirHasta(JTree arbol, TreePath ruta, int profundidad, int maxima) {
+        arbol.expandPath(ruta);
+        if (profundidad >= maxima) return;
+        TreeNode nodo = (TreeNode) ruta.getLastPathComponent();
+        for (int i = 0; i < nodo.getChildCount(); i++) {
+            expandirHasta(arbol, ruta.pathByAddingChild(nodo.getChildAt(i)), profundidad + 1, maxima);
+        }
     }
 
     private static final String EJEMPLO = """

@@ -5,12 +5,12 @@
   <img src="https://img.shields.io/badge/ANTLR-4.13.2-red?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" />
   <img src="https://img.shields.io/badge/JUnit-5-green?style=for-the-badge&logo=junit5&logoColor=white" />
-  <img src="https://img.shields.io/badge/status-en%20desarrollo-yellow?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/status-terminado-brightgreen?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <b>Analizador semántico para el lenguaje Compiscript.</b><br/>
-  Sistema de tipos, validación de expresiones y análisis semántico construido sobre ANTLR.
+  <b>Analizador léxico, sintáctico y semántico para el lenguaje Compiscript.</b><br/>
+  Construido con ANTLR, Java y Maven, con sistema de tipos, tabla de símbolos e interfaz gráfica.
 </p>
 
 ---
@@ -19,60 +19,141 @@
 
 **Compiscript Semantic Analyzer** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
 
-El proyecto extiende el análisis léxico y sintáctico de Compiscript incorporando una fase de **análisis semántico**, encargada de verificar que las instrucciones de un programa sean coherentes con las reglas y tipos definidos por el lenguaje.
+El proyecto analiza programas escritos en Compiscript mediante tres fases principales: análisis léxico, análisis sintáctico y análisis semántico.
 
-ANTLR genera el Lexer y Parser a partir de la gramática de Compiscript. Posteriormente, un Visitor recorre el árbol sintáctico para determinar los tipos de las expresiones y aplicar las validaciones semánticas correspondientes.
+ANTLR genera el Lexer y Parser a partir de la gramática del lenguaje. A partir del árbol sintáctico generado, el analizador semántico valida tipos, expresiones, declaraciones, ámbitos, funciones, clases, estructuras de control y otras reglas del lenguaje.
+
+Los resultados pueden visualizarse desde un IDE de escritorio que muestra los errores encontrados, el árbol sintáctico y la tabla de símbolos.
 
 ---
 
-## Funcionalidades actuales
+## Funcionalidades
 
-Actualmente el sistema permite:
+El analizador implementa:
 
-- Reconocer tipos `integer`, `string`, `boolean` y `null`
-- Determinar el tipo resultante de expresiones
-- Validar operaciones aritméticas `+`, `-`, `*` y `/`
-- Validar operaciones lógicas `&&`, `||` y `!`
-- Validar comparaciones `==`, `!=`, `<`, `<=`, `>` y `>=`
-- Verificar compatibilidad de tipos en asignaciones
-- Verificar tipos en la inicialización de constantes
-- Validar tipos de elementos dentro de arreglos
-- Validar el tipo utilizado como índice de un arreglo
-- Representar errores y resultados semánticos
-- Recorrer el árbol sintáctico mediante un Visitor de ANTLR
-- Ejecutar pruebas automatizadas para casos válidos e inválidos
-- Registrar símbolos para variables, constantes, parámetros, funciones, clases, atributos y métodos
-- Resolver identificadores a través de ámbitos globales, de función, clase y bloque
-- Validar llamadas, argumentos, retornos, recursión, closures y declaraciones duplicadas
-- Validar instanciación, constructores, acceso a miembros y el uso contextual de `this`
-- Validar operadores aritméticos, lógicos, relacionales, de igualdad y el operador ternario
-  dentro del flujo completo del analizador (con tabla de símbolos), no solo de forma aislada
-- Validar condiciones booleanas en `if`, `while`, `do-while`, `for` y ámbito propio del `for`
-- Validar `break`/`continue` solo dentro de bucles, y crear el ámbito de la variable en `foreach`
-- Validar el tipo del `case` contra el tipo del `switch`, y declarar la variable de `catch`
-- Detectar código muerto (instrucciones después de `return`, `break` o `continue`)
-- Detectar el uso de una función/clase como valor sin invocarla (p. ej. `f * 2` sin llamar a `f()`)
-- Actualizar información de un símbolo ya declarado en la tabla de símbolos (`Ambito.actualizar`)
-- Tipo `float`, con promoción numérica en operaciones aritméticas y relacionales (`integer + float -> float`)
-- IDE de escritorio (Swing) para escribir, compilar y ver el árbol sintáctico y la tabla de símbolos
+### Análisis léxico y sintáctico
 
-### Pendiente para el proyecto completo (100 pts)
+- Lexer generado mediante ANTLR.
+- Parser generado mediante ANTLR.
+- Construcción del árbol sintáctico.
+- Recorrido del árbol mediante Visitor.
+- Integración del árbol sintáctico con el análisis semántico.
 
-- Documentación de arquitectura: ver [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
+### Sistema de tipos
 
-El punto de entrada del análisis completo es:
+- Tipos `integer`, `float`, `string`, `boolean` y `null`.
+- Tipos de arreglos.
+- Tipos definidos mediante clases.
+- Inferencia y determinación del tipo de expresiones.
+- Promoción numérica entre `integer` y `float`.
 
-```java
-AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
-ResultadoSemantico resultado = analisis.resultado();
-Ambito tablaGlobal = analisis.ambitoGlobal();
+### Expresiones y operadores
+
+- Operaciones aritméticas: `+`, `-`, `*`, `/`.
+- Operaciones lógicas: `&&`, `||`, `!`.
+- Comparaciones: `==`, `!=`, `<`, `<=`, `>`, `>=`.
+- Operador ternario.
+- Validación de compatibilidad entre operandos.
+- Determinación del tipo resultante de las expresiones.
+
+### Variables y constantes
+
+- Declaración de variables.
+- Declaración de constantes.
+- Compatibilidad entre el tipo declarado y el valor asignado.
+- Validación de inicializaciones.
+- Detección de declaraciones duplicadas.
+
+### Arreglos
+
+- Validación del tipo de los elementos.
+- Arreglos tipados.
+- Acceso a elementos.
+- Validación del tipo utilizado como índice.
+
+### Funciones
+
+- Declaración de funciones.
+- Parámetros.
+- Tipos de retorno.
+- Validación de llamadas.
+- Validación de cantidad y tipos de argumentos.
+- Recursión.
+- Closures.
+- Detección del uso de funciones como valores cuando corresponde una invocación.
+
+### Clases y objetos
+
+- Declaración de clases.
+- Atributos.
+- Métodos.
+- Constructores.
+- Instanciación de objetos.
+- Acceso a miembros.
+- Validación de llamadas a métodos.
+- Uso contextual de `this`.
+
+### Control de flujo
+
+- `if` / `else`.
+- `while`.
+- `do-while`.
+- `for`.
+- `foreach`.
+- `switch` / `case`.
+- `break`.
+- `continue`.
+- `try` / `catch`.
+- Validación de condiciones booleanas.
+- Manejo de ámbitos dentro de estructuras de control.
+- Detección de código muerto después de `return`, `break` o `continue`.
+
+### Tabla de símbolos
+
+La tabla de símbolos permite:
+
+- Insertar símbolos.
+- Recuperar información.
+- Actualizar símbolos existentes.
+- Resolver identificadores.
+- Manejar ámbitos anidados.
+
+Se registran símbolos correspondientes a:
+
+- Variables.
+- Constantes.
+- Parámetros.
+- Funciones.
+- Clases.
+- Atributos.
+- Métodos.
+
+El analizador maneja ámbitos globales, de función, de clase y de bloque.
+
+### Manejo de errores
+
+El análisis semántico continúa después de encontrar errores con el objetivo de reportar múltiples problemas en una misma ejecución.
+
+Los errores muestran información como:
+
+- Línea.
+- Columna.
+- Descripción del problema.
+
+Por ejemplo:
+
+```text
+1:0 - No se puede inicializar integer con string
+3:0 - No se puede inicializar boolean con integer
+7:0 - La condición del if debe ser boolean, se obtuvo integer
+11:0 - 'break' solo puede utilizarse dentro de un bucle
 ```
 
 ---
 
 ## Ejemplos
 
-Expresiones válidas:
+### Expresiones válidas
 
 ```cps
 10 + 5
@@ -81,7 +162,16 @@ true && false
 "hola" == "mundo"
 ```
 
-Expresiones incompatibles:
+Resultados:
+
+```text
+10 + 5          -> INTEGER
+20 >= 10        -> BOOLEAN
+true && false   -> BOOLEAN
+"hola" == "mundo" -> BOOLEAN
+```
+
+### Expresiones incompatibles
 
 ```cps
 true + 5
@@ -90,22 +180,44 @@ true + 5
 true || 10
 ```
 
-El sistema determina el tipo resultante de cada expresión o identifica una incompatibilidad semántica.
+Estas expresiones son reconocidas sintácticamente, pero producen errores durante el análisis semántico debido a incompatibilidades de tipos.
 
-Por ejemplo:
+### Programa válido
 
-```text
-10 + 5          -> INTEGER
-10 < 20         -> BOOLEAN
-true && false   -> BOOLEAN
-true * 5        -> ERROR
+```cps
+class Persona {
+    let edad: integer;
+
+    function constructor(e: integer) {
+        this.edad = e;
+    }
+
+    function esMayorDeEdad(): boolean {
+        return this.edad >= 18;
+    }
+}
+
+function sumar(a: integer, b: integer): integer {
+    return a + b;
+}
+
+let p = new Persona(20);
+let resultado: integer = sumar(2, 3);
+let xs: integer[] = [1, 2, 3];
+let promedio: float = 1 + 2.5;
+
+if (p.esMayorDeEdad()) {
+    print(resultado);
+}
+
+for (let i = 0; i < 3; i = i + 1) {
+    print(xs[i]);
+}
 ```
 
 ---
 
 ## Sistema de tipos
-
-Actualmente se contemplan los siguientes tipos dentro del analizador:
 
 | Tipo | Uso |
 |---|---|
@@ -122,38 +234,92 @@ Actualmente se contemplan los siguientes tipos dentro del analizador:
 
 ---
 
-## Cómo compilar
+## Cómo funciona
 
-### Requisitos
+El proceso general de análisis es:
 
-Se necesita:
+```text
+Código Compiscript
+        |
+        v
+   Lexer - ANTLR
+        |
+        v
+   Parser - ANTLR
+        |
+        v
+Árbol sintáctico
+        |
+        v
+Analizador semántico
+        |
+   +----+----+
+   |         |
+   v         v
+Sistema    Tabla de
+de tipos   símbolos
+   |         |
+   +----+----+
+        |
+        v
+Errores y resultados
+        |
+        v
+       IDE
+```
 
-- Java 17 o superior
-- Maven 3.9 o superior
+El Lexer transforma el código fuente en tokens y el Parser utiliza esos tokens para construir el árbol sintáctico.
 
-Puedes comprobar las instalaciones con:
+El analizador semántico recorre el árbol y utiliza el sistema de tipos y la tabla de símbolos para comprobar las reglas semánticas del lenguaje.
+
+El resultado del análisis contiene los errores encontrados y la información de los símbolos registrados durante el procesamiento.
+
+El punto de entrada del análisis completo es:
+
+```java
+AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
+
+ResultadoSemantico resultado = analisis.resultado();
+
+Ambito tablaGlobal = analisis.ambitoGlobal();
+```
+
+---
+
+## Requisitos
+
+Para compilar y ejecutar el proyecto se necesita:
+
+- Java 17 o superior.
+- Maven 3.9 o superior.
+
+Puedes verificar las instalaciones con:
 
 ```bash
 java -version
 mvn -version
 ```
 
-### Clonar el repositorio
+---
+
+## Instalación
+
+Clona el repositorio:
 
 ```bash
 git clone https://github.com/Anaru03/Cps-semantic.git
 cd Cps-semantic
 ```
 
-### Compilar
+Compila el proyecto:
 
 ```bash
 mvn clean compile
 ```
 
-Maven genera automáticamente el Lexer, Parser, Listener y Visitor de ANTLR antes de compilar el código Java.
+Maven genera automáticamente las clases necesarias de ANTLR y posteriormente compila el código Java.
 
-Una compilación correcta termina con:
+Una compilación correcta debe finalizar con:
 
 ```text
 BUILD SUCCESS
@@ -161,7 +327,72 @@ BUILD SUCCESS
 
 ---
 
-## Cómo ejecutar las pruebas
+## IDE
+
+El proyecto incluye una interfaz gráfica de escritorio desarrollada con **Java Swing**.
+
+Para ejecutarla:
+
+```bash
+mvn compile exec:java
+```
+
+La interfaz contiene:
+
+- Editor de código Compiscript.
+- Botón **Compilar**.
+- Atajo de compilación `Ctrl + Enter`.
+- Pestaña **Errores**.
+- Pestaña **Árbol sintáctico**.
+- Pestaña **Tabla de símbolos**.
+
+Al ejecutar el análisis, los resultados se muestran directamente dentro de la interfaz.
+
+### Errores
+
+La pestaña **Errores** muestra los problemas semánticos encontrados junto con su línea, columna y descripción.
+
+Cuando el programa es correcto se muestra:
+
+```text
+Compilación exitosa: no se encontraron errores semánticos.
+```
+
+### Árbol sintáctico
+
+La pestaña **Árbol sintáctico** muestra una representación navegable del árbol generado por el Parser de ANTLR.
+
+Permite visualizar nodos correspondientes a declaraciones, expresiones, funciones, clases y estructuras de control.
+
+### Tabla de símbolos
+
+La pestaña **Tabla de símbolos** permite visualizar los símbolos registrados y sus respectivos ámbitos.
+
+Por ejemplo:
+
+```text
+global
+|
++-- CLASE Persona : Persona
+|   |
+|   +-- ATRIBUTO edad : integer
+|   +-- METODO constructor : void
+|   +-- METODO esMayorDeEdad : boolean
+|
++-- FUNCION sumar : integer
+|   |
+|   +-- PARAMETRO a : integer
+|   +-- PARAMETRO b : integer
+|
++-- VARIABLE p : Persona
++-- VARIABLE resultado : integer
++-- VARIABLE xs : integer[]
++-- VARIABLE promedio : float
+```
+
+---
+
+## Pruebas automatizadas
 
 Para ejecutar toda la batería de pruebas:
 
@@ -172,25 +403,51 @@ mvn clean test
 Actualmente el proyecto cuenta con:
 
 ```text
-65 tests
+133 tests
 0 fallos
 0 errores
 ```
 
-Los tests cubren:
+Una ejecución correcta finaliza con:
 
-- Tipos básicos
-- Literales
-- Operaciones aritméticas
-- Operaciones lógicas
-- Comparaciones
-- Asignaciones
-- Constantes
-- Arreglos
-- Índices
-- Resultados semánticos
+```text
+Tests run: 133, Failures: 0, Errors: 0, Skipped: 0
 
-### Ejecutar una prueba específica
+BUILD SUCCESS
+```
+
+Las pruebas cubren:
+
+- Sistema de tipos.
+- Literales.
+- Operaciones aritméticas.
+- Operaciones lógicas.
+- Comparaciones.
+- Operadores.
+- Asignaciones.
+- Constantes.
+- Arreglos e índices.
+- Funciones y llamadas.
+- Clases y objetos.
+- Tabla de símbolos.
+- Manejo de ámbitos.
+- Control de flujo.
+- Resultados y errores semánticos.
+- Integración del analizador semántico.
+
+### Ejecutar pruebas específicas
+
+Sistema de tipos:
+
+```bash
+mvn -Dtest=TipoTest test
+```
+
+Inferencia de tipos:
+
+```bash
+mvn -Dtest=TipoVisitorTest test
+```
 
 Operaciones aritméticas:
 
@@ -228,19 +485,25 @@ Arreglos:
 mvn -Dtest=ArreglosTest test
 ```
 
-Operadores (a través del analizador completo, con tabla de símbolos):
+Analizador semántico:
+
+```bash
+mvn -Dtest=AnalizadorSemanticoTest test
+```
+
+Operadores integrados:
 
 ```bash
 mvn -Dtest=OperadoresTest test
 ```
 
-Control de flujo (`if`/`while`/`for`/`foreach`/`switch`/`break`/`continue`/código muerto):
+Control de flujo:
 
 ```bash
 mvn -Dtest=ControlFlujoTest test
 ```
 
-Tabla de símbolos (insertar, recuperar, actualizar, manejo de alcances):
+Tabla de símbolos:
 
 ```bash
 mvn -Dtest=TablaSimbolosTest test
@@ -248,82 +511,23 @@ mvn -Dtest=TablaSimbolosTest test
 
 ---
 
-## IDE
+## Documentación
 
-El proyecto incluye un IDE de escritorio (Swing) para escribir código Compiscript, compilarlo
-y ver tanto los errores semánticos como una representación visual del árbol sintáctico y de la
-tabla de símbolos.
+La documentación de arquitectura y de los componentes principales del proyecto se encuentra en:
 
-```bash
-mvn compile exec:java
-```
-
-La ventana tiene un editor a la izquierda y tres pestañas a la derecha: **Errores**, **Árbol
-sintáctico** y **Tabla de símbolos**. `Ctrl+Enter` o el botón "Compilar" ejecutan el análisis
-completo sobre el código del editor. El código fuente está en `src/main/java/ide/CompiscriptIDE.java`.
-
-## Cómo funciona
-
-El análisis sigue actualmente este flujo:
-
-```text
-Código Compiscript
-        |
-        v
-      Lexer
-        |
-        v
-      Parser
-        |
-        v
-Árbol sintáctico
-        |
-        v
-   TipoVisitor
-        |
-        v
-Sistema de tipos
-        |
-        v
-Resultado semántico
-```
-
-El `TipoVisitor` utiliza el árbol generado por ANTLR para determinar el tipo de las expresiones.
-
-Las diferentes reglas del sistema semántico utilizan esa información para comprobar si los operandos, asignaciones, constantes y estructuras utilizan tipos compatibles.
-
----
-
-## Pruebas
-
-La batería de pruebas incluye tanto **casos exitosos como casos fallidos**.
-
-Por ejemplo:
-
-```text
-integer + integer     -> válido
-boolean + integer     -> inválido
-
-boolean && boolean    -> válido
-integer && integer    -> inválido
-
-integer < integer     -> válido
-boolean >= boolean    -> inválido
-
-integer <- integer    -> válido
-integer <- string     -> inválido
-```
-
-Esto permite comprobar que el analizador no solamente acepta construcciones correctas, sino que también detecta incompatibilidades semánticas.
+[`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
 
 ---
 
 ## Estado del proyecto
 
-Los tres componentes de la rúbrica final están implementados: análisis sintáctico/semántico
-(sistema de tipos, ámbitos, funciones, clases, control de flujo, código muerto), tabla de
-símbolos (insertar, recuperar, actualizar, manejo de alcances) e IDE. La documentación de
-arquitectura está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
+El proyecto se encuentra **terminado**.
+
+Se implementaron los componentes necesarios para realizar el análisis léxico, sintáctico y semántico de programas escritos en Compiscript utilizando ANTLR.
+
+El proyecto incluye sistema de tipos, validación de reglas semánticas, manejo de ámbitos, funciones, clases, estructuras de control, tabla de símbolos e interfaz gráfica.
+
+La batería automatizada cuenta actualmente con **133 pruebas ejecutadas sin fallos ni errores**.
 
 ---
 

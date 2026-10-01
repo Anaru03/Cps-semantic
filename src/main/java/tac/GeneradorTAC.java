@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Construye y almacena instrucciones de codigo de tres direcciones.
- */
 public final class GeneradorTAC {
 
     private final List<InstruccionTAC> instrucciones;
@@ -54,7 +51,10 @@ public final class GeneradorTAC {
         return temporal;
     }
 
-    public void generarAsignacion(String destino, String valor) {
+    public void generarAsignacion(
+            String destino,
+            String valor) {
+
         instrucciones.add(
                 new InstruccionTAC(
                         "",

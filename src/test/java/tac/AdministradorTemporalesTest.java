@@ -23,15 +23,17 @@ class AdministradorTemporalesTest {
         AdministradorTemporales temporales =
                 new AdministradorTemporales();
 
-        String t0 = temporales.nuevoTemporal();
-        String t1 = temporales.nuevoTemporal();
+        String primero =
+                temporales.nuevoTemporal();
 
-        temporales.liberar(t0);
+        temporales.nuevoTemporal();
 
-        String reutilizado = temporales.nuevoTemporal();
+        temporales.liberar(primero);
 
-        assertEquals("t0", reutilizado);
-        assertEquals("t1", t1);
+        assertEquals(
+                "t0",
+                temporales.nuevoTemporal()
+        );
     }
 
     @Test
@@ -39,15 +41,50 @@ class AdministradorTemporalesTest {
         AdministradorTemporales temporales =
                 new AdministradorTemporales();
 
-        String temporal = temporales.nuevoTemporal();
+        String temporal =
+                temporales.nuevoTemporal();
 
-        assertTrue(temporales.estaEnUso(temporal));
-        assertEquals(1, temporales.cantidadEnUso());
+        assertTrue(
+                temporales.estaEnUso(temporal)
+        );
+
+        assertEquals(
+                1,
+                temporales.cantidadEnUso()
+        );
 
         temporales.liberar(temporal);
 
-        assertFalse(temporales.estaEnUso(temporal));
-        assertEquals(0, temporales.cantidadEnUso());
+        assertFalse(
+                temporales.estaEnUso(temporal)
+        );
+
+        assertEquals(
+                0,
+                temporales.cantidadEnUso()
+        );
+    }
+
+    @Test
+    void noLiberaDosVecesElMismoTemporal() {
+        AdministradorTemporales temporales =
+                new AdministradorTemporales();
+
+        String temporal =
+                temporales.nuevoTemporal();
+
+        temporales.liberar(temporal);
+        temporales.liberar(temporal);
+
+        assertEquals(
+                "t0",
+                temporales.nuevoTemporal()
+        );
+
+        assertEquals(
+                "t1",
+                temporales.nuevoTemporal()
+        );
     }
 
     @Test
@@ -60,7 +97,14 @@ class AdministradorTemporalesTest {
 
         temporales.reiniciar();
 
-        assertEquals(0, temporales.cantidadEnUso());
-        assertEquals("t0", temporales.nuevoTemporal());
+        assertEquals(
+                0,
+                temporales.cantidadEnUso()
+        );
+
+        assertEquals(
+                "t0",
+                temporales.nuevoTemporal()
+        );
     }
 }

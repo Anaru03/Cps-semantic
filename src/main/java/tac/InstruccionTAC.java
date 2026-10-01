@@ -2,12 +2,6 @@ package tac;
 
 import java.util.Objects;
 
-/**
- * Representa una instruccion de codigo de tres direcciones.
- *
- * Forma general:
- * resultado = argumento1 operador argumento2
- */
 public final class InstruccionTAC {
 
     private final String operador;
@@ -45,13 +39,20 @@ public final class InstruccionTAC {
 
     @Override
     public String toString() {
+        if (argumento2 == null && operador.isEmpty()) {
+            return resultado + " = " + argumento1;
+        }
+
         if (argumento2 == null) {
             return resultado + " = " + operador + argumento1;
         }
 
-        return resultado + " = "
-                + argumento1 + " "
-                + operador + " "
+        return resultado
+                + " = "
+                + argumento1
+                + " "
+                + operador
+                + " "
                 + argumento2;
     }
 }

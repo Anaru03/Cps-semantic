@@ -1,299 +1,381 @@
-# Compiscript Semantic Analyzer
+# Compiscript Compiler
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk&logoColor=white" />
   <img src="https://img.shields.io/badge/ANTLR-4.13.2-red?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" />
   <img src="https://img.shields.io/badge/JUnit-5-green?style=for-the-badge&logo=junit5&logoColor=white" />
-  <img src="https://img.shields.io/badge/status-terminado-brightgreen?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/TAC-Three--Address%20Code-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/status-en%20desarrollo-yellow?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <b>Analizador léxico, sintáctico y semántico para el lenguaje Compiscript.</b><br/>
-  Construido con ANTLR, Java y Maven, con sistema de tipos, tabla de símbolos e interfaz gráfica.
+  <b>Compilador académico para el lenguaje Compiscript.</b><br/>
+  Análisis léxico, sintáctico y semántico con generación de código intermedio TAC.
 </p>
 
 ---
 
 ## ¿Qué es?
 
-**Compiscript Semantic Analyzer** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
+**Compiscript Compiler** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
 
-El proyecto analiza programas escritos en Compiscript mediante tres fases principales: análisis léxico, análisis sintáctico y análisis semántico.
+El proyecto implementa distintas etapas del proceso de compilación de programas escritos en Compiscript.
 
-ANTLR genera el Lexer y Parser a partir de la gramática del lenguaje. A partir del árbol sintáctico generado, el analizador semántico valida tipos, expresiones, declaraciones, ámbitos, funciones, clases, estructuras de control y otras reglas del lenguaje.
+La primera etapa del proyecto desarrolló el análisis léxico, sintáctico y semántico del lenguaje, incluyendo sistema de tipos, tabla de símbolos, ámbitos, funciones, clases, arreglos, estructuras de control y manejo de errores.
 
-Los resultados pueden visualizarse desde un IDE de escritorio que muestra los errores encontrados, el árbol sintáctico y la tabla de símbolos.
+La segunda etapa extiende esta infraestructura para generar una representación intermedia basada en **Three-Address Code (TAC)** a partir del árbol sintáctico generado por ANTLR.
 
----
-
-## Funcionalidades
-
-El analizador implementa:
-
-### Análisis léxico y sintáctico
-
-- Lexer generado mediante ANTLR.
-- Parser generado mediante ANTLR.
-- Construcción del árbol sintáctico.
-- Recorrido del árbol mediante Visitor.
-- Integración del árbol sintáctico con el análisis semántico.
-
-### Sistema de tipos
-
-- Tipos `integer`, `float`, `string`, `boolean` y `null`.
-- Tipos de arreglos.
-- Tipos definidos mediante clases.
-- Inferencia y determinación del tipo de expresiones.
-- Promoción numérica entre `integer` y `float`.
-
-### Expresiones y operadores
-
-- Operaciones aritméticas: `+`, `-`, `*`, `/`.
-- Operaciones lógicas: `&&`, `||`, `!`.
-- Comparaciones: `==`, `!=`, `<`, `<=`, `>`, `>=`.
-- Operador ternario.
-- Validación de compatibilidad entre operandos.
-- Determinación del tipo resultante de las expresiones.
-
-### Variables y constantes
-
-- Declaración de variables.
-- Declaración de constantes.
-- Compatibilidad entre el tipo declarado y el valor asignado.
-- Validación de inicializaciones.
-- Detección de declaraciones duplicadas.
-
-### Arreglos
-
-- Validación del tipo de los elementos.
-- Arreglos tipados.
-- Acceso a elementos.
-- Validación del tipo utilizado como índice.
-
-### Funciones
-
-- Declaración de funciones.
-- Parámetros.
-- Tipos de retorno.
-- Validación de llamadas.
-- Validación de cantidad y tipos de argumentos.
-- Recursión.
-- Closures.
-- Detección del uso de funciones como valores cuando corresponde una invocación.
-
-### Clases y objetos
-
-- Declaración de clases.
-- Atributos.
-- Métodos.
-- Constructores.
-- Instanciación de objetos.
-- Acceso a miembros.
-- Validación de llamadas a métodos.
-- Uso contextual de `this`.
-
-### Control de flujo
-
-- `if` / `else`.
-- `while`.
-- `do-while`.
-- `for`.
-- `foreach`.
-- `switch` / `case`.
-- `break`.
-- `continue`.
-- `try` / `catch`.
-- Validación de condiciones booleanas.
-- Manejo de ámbitos dentro de estructuras de control.
-- Detección de código muerto después de `return`, `break` o `continue`.
-
-### Tabla de símbolos
-
-La tabla de símbolos permite:
-
-- Insertar símbolos.
-- Recuperar información.
-- Actualizar símbolos existentes.
-- Resolver identificadores.
-- Manejar ámbitos anidados.
-
-Se registran símbolos correspondientes a:
-
-- Variables.
-- Constantes.
-- Parámetros.
-- Funciones.
-- Clases.
-- Atributos.
-- Métodos.
-
-El analizador maneja ámbitos globales, de función, de clase y de bloque.
-
-### Manejo de errores
-
-El análisis semántico continúa después de encontrar errores con el objetivo de reportar múltiples problemas en una misma ejecución.
-
-Los errores muestran información como:
-
-- Línea.
-- Columna.
-- Descripción del problema.
-
-Por ejemplo:
-
-```text
-1:0 - No se puede inicializar integer con string
-3:0 - No se puede inicializar boolean con integer
-7:0 - La condición del if debe ser boolean, se obtuvo integer
-11:0 - 'break' solo puede utilizarse dentro de un bucle
-```
-
----
-
-## Ejemplos
-
-### Expresiones válidas
-
-```cps
-10 + 5
-20 >= 10
-true && false
-"hola" == "mundo"
-```
-
-Resultados:
-
-```text
-10 + 5          -> INTEGER
-20 >= 10        -> BOOLEAN
-true && false   -> BOOLEAN
-"hola" == "mundo" -> BOOLEAN
-```
-
-### Expresiones incompatibles
-
-```cps
-true + 5
-10 * false
-10 < "hola"
-true || 10
-```
-
-Estas expresiones son reconocidas sintácticamente, pero producen errores durante el análisis semántico debido a incompatibilidades de tipos.
-
-### Programa válido
-
-```cps
-class Persona {
-    let edad: integer;
-
-    function constructor(e: integer) {
-        this.edad = e;
-    }
-
-    function esMayorDeEdad(): boolean {
-        return this.edad >= 18;
-    }
-}
-
-function sumar(a: integer, b: integer): integer {
-    return a + b;
-}
-
-let p = new Persona(20);
-let resultado: integer = sumar(2, 3);
-let xs: integer[] = [1, 2, 3];
-let promedio: float = 1 + 2.5;
-
-if (p.esMayorDeEdad()) {
-    print(resultado);
-}
-
-for (let i = 0; i < 3; i = i + 1) {
-    print(xs[i]);
-}
-```
-
----
-
-## Sistema de tipos
-
-| Tipo | Uso |
-|---|---|
-| `INTEGER` | Valores enteros |
-| `FLOAT` | Valores de punto flotante |
-| `STRING` | Cadenas de texto |
-| `BOOLEAN` | Valores lógicos |
-| `NULL` | Valor nulo |
-| `ARRAY` | Arreglos |
-| `CLASS` | Tipos definidos mediante clases |
-| `VOID` | Ausencia de valor |
-| `UNKNOWN` | Tipo todavía no determinado |
-| `ERROR` | Expresión semánticamente inválida |
-
----
-
-## Cómo funciona
-
-El proceso general de análisis es:
+El flujo general es:
 
 ```text
 Código Compiscript
         |
         v
-   Lexer - ANTLR
+      Lexer
         |
         v
-   Parser - ANTLR
+      Parser
         |
         v
 Árbol sintáctico
         |
         v
-Analizador semántico
-        |
-   +----+----+
-   |         |
-   v         v
-Sistema    Tabla de
-de tipos   símbolos
-   |         |
-   +----+----+
+Análisis semántico
         |
         v
-Errores y resultados
+Tabla de símbolos
         |
         v
-       IDE
+Generación de código intermedio
+        |
+        v
+       TAC
 ```
 
-El Lexer transforma el código fuente en tokens y el Parser utiliza esos tokens para construir el árbol sintáctico.
+---
 
-El analizador semántico recorre el árbol y utiliza el sistema de tipos y la tabla de símbolos para comprobar las reglas semánticas del lenguaje.
+## Código intermedio TAC
 
-El resultado del análisis contiene los errores encontrados y la información de los símbolos registrados durante el procesamiento.
+El proyecto utiliza **Three-Address Code** como representación intermedia.
 
-El punto de entrada del análisis completo es:
+Una expresión Compiscript como:
 
-```java
-AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
-
-ResultadoSemantico resultado = analisis.resultado();
-
-Ambito tablaGlobal = analisis.ambitoGlobal();
+```cps
+let x: integer = a + b * c;
 ```
+
+se transforma en:
+
+```text
+t0 = b * c
+t1 = a + t0
+x = t1
+```
+
+La precedencia de operadores no se calcula nuevamente durante esta fase. El Parser de ANTLR ya construye el árbol sintáctico de acuerdo con la precedencia definida en la gramática, y el generador TAC recorre esa estructura.
+
+Por ejemplo:
+
+```cps
+(a + b) * c
+```
+
+produce:
+
+```text
+t0 = a + b
+t1 = t0 * c
+```
+
+---
+
+## Instrucciones TAC
+
+Actualmente la representación intermedia soporta operaciones binarias, operaciones unarias y asignaciones.
+
+### Operaciones binarias
+
+```text
+resultado = operando1 operador operando2
+```
+
+Ejemplo:
+
+```text
+t0 = a + b
+```
+
+### Operaciones unarias
+
+```text
+resultado = operador operando
+```
+
+Ejemplo:
+
+```text
+t0 = -a
+```
+
+### Asignaciones
+
+```text
+destino = valor
+```
+
+Ejemplo:
+
+```text
+x = t0
+```
+
+---
+
+## Expresiones soportadas
+
+### Aritméticas
+
+```text
++
+-
+*
+/
+%
+```
+
+Ejemplos:
+
+```text
+t0 = a + b
+t1 = x * y
+t2 = n % 2
+```
+
+### Lógicas
+
+```text
+&&
+||
+!
+```
+
+Ejemplos:
+
+```text
+t0 = a && b
+t1 = x || y
+t2 = !activo
+```
+
+### Relacionales
+
+```text
+<
+<=
+>
+>=
+```
+
+Ejemplo:
+
+```text
+t0 = edad >= 18
+```
+
+### Igualdad
+
+```text
+==
+!=
+```
+
+Ejemplo:
+
+```text
+t0 = a == b
+```
+
+---
+
+## Variables temporales
+
+Los resultados intermedios utilizan variables temporales:
+
+```text
+t0
+t1
+t2
+...
+```
+
+La clase `AdministradorTemporales` se encarga de crear, liberar y reutilizar estos temporales.
+
+Por ejemplo:
+
+```cps
+x = a + b;
+y = c + d;
+```
+
+puede generar:
+
+```text
+t0 = a + b
+x = t0
+t0 = c + d
+y = t0
+```
+
+Después de almacenar el primer resultado en `x`, `t0` deja de ser necesario y puede reutilizarse para la siguiente expresión.
+
+También se liberan resultados intermedios cuando dejan de utilizarse durante la evaluación de expresiones compuestas.
+
+---
+
+## Arquitectura
+
+La implementación está dividida en dos áreas principales.
+
+### Análisis del lenguaje
+
+El paquete `semantic` contiene la infraestructura desarrollada durante la primera etapa:
+
+```text
+semantic/
+├── AnalizadorSemantico
+├── AnalisisSemantico
+├── TipoVisitor
+├── Tipo
+├── Ambito
+├── Simbolo
+├── ResultadoSemantico
+└── validadores semánticos
+```
+
+Esta etapa se encarga de validar el programa antes de utilizarlo en fases posteriores.
+
+### Generación TAC
+
+El paquete `tac` contiene la infraestructura de código intermedio:
+
+```text
+tac/
+├── InstruccionTAC.java
+├── AdministradorTemporales.java
+├── GeneradorTAC.java
+└── GeneradorExpresionesTAC.java
+```
+
+`InstruccionTAC` representa una instrucción de tres direcciones.
+
+`AdministradorTemporales` administra la creación, liberación y reutilización de temporales.
+
+`GeneradorTAC` almacena y produce las instrucciones intermedias.
+
+`GeneradorExpresionesTAC` recorre el árbol sintáctico generado por ANTLR y traduce expresiones, declaraciones y asignaciones a TAC.
+
+---
+
+## Análisis semántico
+
+Antes de la generación de código intermedio, el proyecto cuenta con análisis semántico para verificar la coherencia del programa.
+
+Actualmente se manejan tipos como:
+
+| Tipo | Uso |
+|---|---|
+| `INTEGER` | Valores enteros |
+| `FLOAT` | Valores de punto flotante |
+| `STRING` | Cadenas |
+| `BOOLEAN` | Valores lógicos |
+| `NULL` | Valor nulo |
+| `ARRAY` | Arreglos |
+| `CLASS` | Clases |
+| `VOID` | Ausencia de valor |
+| `UNKNOWN` | Tipo todavía no determinado |
+| `ERROR` | Construcción semánticamente inválida |
+
+El análisis también incluye:
+
+- Variables y constantes
+- Compatibilidad de tipos
+- Funciones y parámetros
+- Retornos
+- Recursión
+- Clases y objetos
+- Arreglos
+- Ámbitos
+- Tabla de símbolos
+- Control de flujo
+- Detección de código muerto
+- Recuperación y reporte de múltiples errores
+
+---
+
+## Ejemplo
+
+Código Compiscript:
+
+```cps
+let a: integer = 10;
+let b: integer = 20;
+let c: integer = 5;
+
+let resultado: integer = a + b * c;
+
+resultado = resultado - 1;
+```
+
+Código TAC correspondiente:
+
+```text
+a = 10
+b = 20
+c = 5
+
+t0 = b * c
+t1 = a + t0
+resultado = t1
+
+t1 = resultado - 1
+resultado = t1
+```
+
+Los temporales pueden reutilizarse cuando sus valores anteriores ya no son necesarios.
+
+---
+
+## IDE
+
+El proyecto conserva el IDE de escritorio desarrollado con **Java Swing**.
+
+Para ejecutarlo:
+
+```bash
+mvn exec:java
+```
+
+La interfaz permite trabajar con código Compiscript y visualizar información producida por las etapas del compilador.
+
+Actualmente incluye visualización de:
+
+- Errores
+- Árbol sintáctico
+- Tabla de símbolos
+
+La integración de la representación intermedia TAC con la interfaz forma parte de la evolución del Proyecto 2.
 
 ---
 
 ## Requisitos
 
-Para compilar y ejecutar el proyecto se necesita:
+Se necesita:
 
-- Java 17 o superior.
-- Maven 3.9 o superior.
+- Java 17 o superior
+- Maven 3.9 o superior
 
-Puedes verificar las instalaciones con:
+Verifica las instalaciones con:
 
 ```bash
 java -version
@@ -311,15 +393,19 @@ git clone https://github.com/Anaru03/Cps-semantic.git
 cd Cps-semantic
 ```
 
-Compila el proyecto:
+Para trabajar con el Proyecto 2:
+
+```bash
+git switch proyecto-2-tac
+```
+
+Compila:
 
 ```bash
 mvn clean compile
 ```
 
-Maven genera automáticamente las clases necesarias de ANTLR y posteriormente compila el código Java.
-
-Una compilación correcta debe finalizar con:
+Una compilación correcta finaliza con:
 
 ```text
 BUILD SUCCESS
@@ -327,207 +413,118 @@ BUILD SUCCESS
 
 ---
 
-## IDE
+## Pruebas
 
-El proyecto incluye una interfaz gráfica de escritorio desarrollada con **Java Swing**.
-
-Para ejecutarla:
+Para ejecutar toda la batería:
 
 ```bash
-mvn compile exec:java
+mvn test
 ```
 
-La interfaz contiene:
-
-- Editor de código Compiscript.
-- Botón **Compilar**.
-- Atajo de compilación `Ctrl + Enter`.
-- Pestaña **Errores**.
-- Pestaña **Árbol sintáctico**.
-- Pestaña **Tabla de símbolos**.
-
-Al ejecutar el análisis, los resultados se muestran directamente dentro de la interfaz.
-
-### Errores
-
-La pestaña **Errores** muestra los problemas semánticos encontrados junto con su línea, columna y descripción.
-
-Cuando el programa es correcto se muestra:
+Estado actual:
 
 ```text
-Compilación exitosa: no se encontraron errores semánticos.
-```
-
-### Árbol sintáctico
-
-La pestaña **Árbol sintáctico** muestra una representación navegable del árbol generado por el Parser de ANTLR.
-
-Permite visualizar nodos correspondientes a declaraciones, expresiones, funciones, clases y estructuras de control.
-
-### Tabla de símbolos
-
-La pestaña **Tabla de símbolos** permite visualizar los símbolos registrados y sus respectivos ámbitos.
-
-Por ejemplo:
-
-```text
-global
-|
-+-- CLASE Persona : Persona
-|   |
-|   +-- ATRIBUTO edad : integer
-|   +-- METODO constructor : void
-|   +-- METODO esMayorDeEdad : boolean
-|
-+-- FUNCION sumar : integer
-|   |
-|   +-- PARAMETRO a : integer
-|   +-- PARAMETRO b : integer
-|
-+-- VARIABLE p : Persona
-+-- VARIABLE resultado : integer
-+-- VARIABLE xs : integer[]
-+-- VARIABLE promedio : float
-```
-
----
-
-## Pruebas automatizadas
-
-Para ejecutar toda la batería de pruebas:
-
-```bash
-mvn clean test
-```
-
-Actualmente el proyecto cuenta con:
-
-```text
-133 tests
-0 fallos
-0 errores
-```
-
-Una ejecución correcta finaliza con:
-
-```text
-Tests run: 133, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 171
+Failures: 0
+Errors: 0
+Skipped: 0
 
 BUILD SUCCESS
 ```
 
-Las pruebas cubren:
+Las pruebas incluyen tanto la infraestructura heredada del análisis semántico como la generación de código intermedio.
 
-- Sistema de tipos.
-- Literales.
-- Operaciones aritméticas.
-- Operaciones lógicas.
-- Comparaciones.
-- Operadores.
-- Asignaciones.
-- Constantes.
-- Arreglos e índices.
-- Funciones y llamadas.
-- Clases y objetos.
-- Tabla de símbolos.
-- Manejo de ámbitos.
-- Control de flujo.
-- Resultados y errores semánticos.
-- Integración del analizador semántico.
+### Pruebas TAC
 
-### Ejecutar pruebas específicas
+Actualmente se incluyen:
 
-Sistema de tipos:
-
-```bash
-mvn -Dtest=TipoTest test
+```text
+AdministradorTemporalesTest
+AsignacionesTACTest
+GeneradorExpresionesTACTest
+GeneradorTACTest
+InstruccionTACTest
 ```
 
-Inferencia de tipos:
+En conjunto cubren:
+
+- Representación de instrucciones TAC
+- Operaciones binarias
+- Operaciones unarias
+- Literales
+- Identificadores
+- Aritmética
+- Operaciones lógicas
+- Comparaciones
+- Igualdad
+- Precedencia
+- Paréntesis
+- Declaraciones
+- Asignaciones
+- Creación de temporales
+- Liberación de temporales
+- Reutilización de temporales
+- Expresiones compuestas
+
+Para ejecutar únicamente las pruebas TAC:
 
 ```bash
-mvn -Dtest=TipoVisitorTest test
+mvn -Dtest="tac.*Test" test
 ```
 
-Operaciones aritméticas:
+También puede ejecutarse una clase individual:
 
 ```bash
-mvn -Dtest=OperacionesAritmeticasTest test
+mvn -Dtest=GeneradorExpresionesTACTest test
 ```
 
-Operaciones lógicas:
+o un caso específico:
 
 ```bash
-mvn -Dtest=OperacionesLogicasTest test
-```
-
-Comparaciones:
-
-```bash
-mvn -Dtest=ComparacionesTest test
-```
-
-Asignaciones:
-
-```bash
-mvn -Dtest=AsignacionesTest test
-```
-
-Constantes:
-
-```bash
-mvn -Dtest=ConstantesTest test
-```
-
-Arreglos:
-
-```bash
-mvn -Dtest=ArreglosTest test
-```
-
-Analizador semántico:
-
-```bash
-mvn -Dtest=AnalizadorSemanticoTest test
-```
-
-Operadores integrados:
-
-```bash
-mvn -Dtest=OperadoresTest test
-```
-
-Control de flujo:
-
-```bash
-mvn -Dtest=ControlFlujoTest test
-```
-
-Tabla de símbolos:
-
-```bash
-mvn -Dtest=TablaSimbolosTest test
+mvn -Dtest=GeneradorExpresionesTACTest#respetaParentesis test
 ```
 
 ---
 
 ## Documentación
 
-La documentación de arquitectura y de los componentes principales del proyecto se encuentra en:
+La documentación técnica se encuentra en:
 
-[`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
+- [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — arquitectura del analizador.
+- [`docs/TAC.md`](docs/TAC.md) — diseño de la representación intermedia TAC.
 
 ---
 
 ## Estado del proyecto
 
-El proyecto se encuentra **terminado**.
+### Proyecto 1 — Análisis semántico
 
-Se implementaron los componentes necesarios para realizar el análisis léxico, sintáctico y semántico de programas escritos en Compiscript utilizando ANTLR.
+Completado.
 
-El proyecto incluye sistema de tipos, validación de reglas semánticas, manejo de ámbitos, funciones, clases, estructuras de control, tabla de símbolos e interfaz gráfica.
+Incluye:
 
-La batería automatizada cuenta actualmente con **133 pruebas ejecutadas sin fallos ni errores**.
+```text
+Análisis léxico
+Análisis sintáctico
+Análisis semántico
+Sistema de tipos
+Tabla de símbolos
+Ámbitos
+Funciones
+Clases
+Arreglos
+Control de flujo
+Manejo de errores
+IDE
+```
+
+### Proyecto 2 — Código intermedio
+
+En desarrollo.
+
+Actualmente se encuentra implementada la infraestructura base de TAC y la generación de código intermedio para expresiones, declaraciones y asignaciones, incluyendo administración y reciclaje de variables temporales.
+
+Las siguientes etapas amplían esta infraestructura con control de flujo, funciones, estructuras, información adicional de símbolos e integración completa con el IDE.
 
 ---
 

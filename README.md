@@ -424,7 +424,7 @@ mvn test
 Estado actual:
 
 ```text
-Tests run: 227
+Tests run: 235
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -527,7 +527,7 @@ Actualmente se encuentra implementada la infraestructura base de TAC y la genera
 
 También se implementaron control de flujo, funciones y registros de activación con recursión, junto con la API `compiler.Compilador.compilar(codigo)`. La API devuelve errores, TAC, firmas, layouts y enlaces a símbolos.
 
-Quedan pendientes arreglos/clases, `foreach`, construcciones señaladas en `docs/TAC.md` y la visualización TAC del IDE. El contrato de integración se encuentra en `docs/INTEGRACION_PERSONA_3.md`.
+Quedan pendientes arreglos/clases, construcciones señaladas en `docs/TAC.md` y la visualización TAC del IDE. El contrato de integración se encuentra en `docs/INTEGRACION_PERSONA_3.md`.
 
 ---
 

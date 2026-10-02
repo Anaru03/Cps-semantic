@@ -53,7 +53,9 @@ tipos seguirán siendo `unknown`; para la entrega, usar la API `Compilador`.
 
 - Persona 3: incorporar estos datos en su tabla de símbolos y vistas del IDE;
   generación de arreglos, clases, atributos, constructores, `this` y métodos.
-- Compartido: contrato de longitud y acceso a elementos para implementar `foreach`.
+- Persona 3: respetar `LONGITUD_ARREGLO` y `LECTURA_ARREGLO` al integrar arreglos.
+  `foreach` ya usa ese contrato: índices desde cero, longitud capturada al entrar
+  y copia de referencia al asignar un operando de tipo arreglo. Ver `TAC.md`.
 - Persona 2: cambio del árbol a diagrama, después de cerrar esta integración.
 - Definir traducción de `print`, `try/catch` y ternario antes de ampliar el alcance;
   la API reporta diagnóstico TAC cuando todavía no están implementados.

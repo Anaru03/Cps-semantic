@@ -58,7 +58,7 @@ public final class Compilador {
         if (nodo instanceof ParserRuleContext ctx) {
             String problema = null;
             if (ctx instanceof CompiscriptParser.StatementContext sentencia
-                    && (sentencia.classDeclaration() != null || sentencia.foreachStatement() != null
+                    && (sentencia.classDeclaration() != null
                     || sentencia.tryCatchStatement() != null || sentencia.printStatement() != null))
                 problema = "Sentencia TAC pendiente: " + ctx.getStart().getText();
             if (ctx instanceof CompiscriptParser.ArrayLiteralContext

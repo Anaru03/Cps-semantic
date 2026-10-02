@@ -57,7 +57,7 @@ class ControlCondicionalTACTest {
 
     @Test void rechazaSentenciasTodaviaNoImplementadas() {
         assertThrows(UnsupportedOperationException.class,
-                () -> generar("foreach (x in [1, 2]) { let y: integer = x; }"));
+                () -> generar("print(1);"));
     }
 
     @Test void comparteEmisorDeExpresionesYSentencias() {

@@ -65,6 +65,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         if (ctx.whileStatement() != null) return visit(ctx.whileStatement());
         if (ctx.doWhileStatement() != null) return visit(ctx.doWhileStatement());
         if (ctx.forStatement() != null) return visit(ctx.forStatement());
+        if (ctx.foreachStatement() != null) return visit(ctx.foreachStatement());
         if (ctx.switchStatement() != null) return visit(ctx.switchStatement());
         if (ctx.functionDeclaration() != null) return visit(ctx.functionDeclaration());
         if (ctx.returnStatement() != null) return visit(ctx.returnStatement());
@@ -212,6 +213,51 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         generador.emitirEtiqueta(salida);
         return null;
         } finally { generador.salirAmbito(); }
+    }
+
+    @Override public Void visitForeachStatement(CompiscriptParser.ForeachStatementContext ctx) {
+        String valor = Objects.requireNonNull(expresiones.visit(ctx.expression()), "Iterable TAC no soportado");
+        String arreglo = generador.temporales().nuevoTemporal();
+        generador.generarAsignacion(arreglo, valor);
+        generador.liberarTemporal(valor);
+        var tipo = generador.informacion().tipos().get(ctx.expression());
+        if (tipo != null) generador.tiparTemporal(arreglo, tipo.toString());
+        String longitud = generador.temporales().nuevoTemporal();
+        String indice = generador.temporales().nuevoTemporal();
+        generador.emitir(InstruccionTAC.longitudArreglo(arreglo, longitud));
+        generador.generarAsignacion(indice, "0");
+        generador.tiparTemporal(longitud, "integer");
+        generador.tiparTemporal(indice, "integer");
+        String condicion = generador.nuevaEtiqueta();
+        String cuerpo = generador.nuevaEtiqueta();
+        String incremento = generador.nuevaEtiqueta();
+        String salida = generador.nuevaEtiqueta();
+        generador.entrarAmbito();
+        try {
+            String elemento = generador.declarar(ctx, ctx.Identifier().getText(), "unknown");
+            generador.emitirEtiqueta(condicion);
+            String prueba = generador.generarOperacion("<", indice, longitud);
+            generador.tiparTemporal(prueba, "boolean");
+            generador.generarSaltoCondicional(prueba, cuerpo);
+            generador.generarSalto(salida);
+            generador.liberarTemporal(prueba);
+            generador.emitirEtiqueta(cuerpo);
+            generador.emitir(InstruccionTAC.lecturaArreglo(arreglo, indice, elemento));
+            visitarCuerpo(ctx.block(), salida, incremento);
+            generador.emitirEtiqueta(incremento);
+            String siguiente = generador.generarOperacion("+", indice, "1");
+            generador.tiparTemporal(siguiente, "integer");
+            generador.generarAsignacion(indice, siguiente);
+            generador.liberarTemporal(siguiente);
+            generador.generarSalto(condicion);
+            generador.emitirEtiqueta(salida);
+        } finally {
+            generador.salirAmbito();
+            generador.liberarTemporal(arreglo);
+            generador.liberarTemporal(longitud);
+            generador.liberarTemporal(indice);
+        }
+        return null;
     }
 
     @Override public Void visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {

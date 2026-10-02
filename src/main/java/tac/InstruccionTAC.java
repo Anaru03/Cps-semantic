@@ -4,7 +4,8 @@ import java.util.Objects;
 
 public final class InstruccionTAC {
     public enum Tipo { OPERACION, ETIQUETA, SALTO, SALTO_CONDICIONAL,
-        FUNCION, FIN_FUNCION, PARAMETRO, ARGUMENTO, LLAMADA, RETORNO }
+        FUNCION, FIN_FUNCION, PARAMETRO, ARGUMENTO, LLAMADA, RETORNO,
+        LONGITUD_ARREGLO, LECTURA_ARREGLO }
 
     private final Tipo tipo;
 
@@ -65,6 +66,14 @@ public final class InstruccionTAC {
     public static InstruccionTAC retorno(String valor) {
         return new InstruccionTAC(Tipo.RETORNO, "return", valor, null, null);
     }
+    public static InstruccionTAC longitudArreglo(String arreglo, String resultado) {
+        return new InstruccionTAC(Tipo.LONGITUD_ARREGLO, "length",
+                Objects.requireNonNull(arreglo), null, resultado);
+    }
+    public static InstruccionTAC lecturaArreglo(String arreglo, String indice, String resultado) {
+        return new InstruccionTAC(Tipo.LECTURA_ARREGLO, "load_index",
+                Objects.requireNonNull(arreglo), Objects.requireNonNull(indice), resultado);
+    }
 
     public String operador() {
         return operador;
@@ -85,6 +94,8 @@ public final class InstruccionTAC {
     @Override
     public String toString() {
         switch (tipo) {
+            case LONGITUD_ARREGLO: return resultado + " = length " + argumento1;
+            case LECTURA_ARREGLO: return resultado + " = " + argumento1 + "[" + argumento2 + "]";
             case FUNCION: return "function " + resultado;
             case FIN_FUNCION: return "end function " + resultado;
             case PARAMETRO: return resultado + " = param " + argumento1;

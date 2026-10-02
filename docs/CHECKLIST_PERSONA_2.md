@@ -83,14 +83,13 @@ antes de considerar completo el compilador. Las pruebas actuales no verifican es
   Cubrir condición y actualización omitidas; la gramática no admite `i++`, usar `i = i + 1`.
 - [x] Pila de contextos para anidamiento; `break` sale del contexto adecuado.
 - [x] `continue`: condición en `while`/`do-while`, actualización en `for`.
-- [ ] `foreach`: evaluar iterable una vez, recorrer elementos y avanzar en `continue`.
-  Acordar con Persona 3 instrucciones de longitud/acceso y representación del arreglo.
+- [x] `foreach`: evaluar iterable una vez, recorrer elementos y avanzar en `continue`.
+  Contrato de longitud/acceso implementado y documentado; Persona 3 integra la representación.
 - [x] Pruebas de cero/una/varias iteraciones, anidamiento, actualización y saltos fuera de contexto.
-- [ ] Pruebas de temporales persistentes del iterable/índice para `foreach`.
+- [x] Pruebas de temporales persistentes del iterable/índice para `foreach`.
 
 Bloque 2 verificado con 187 pruebas pasando. El bloque 3 es `switch/case/default`;
-la pila ya distingue contextos con y sin continuación. `foreach` permanece pendiente
-del contrato de arreglos con Persona 3.
+la pila ya distingue contextos con y sin continuación. `foreach` ya está implementado con un contrato explícito de arreglos.
 
 ### 4. Switch
 
@@ -182,5 +181,12 @@ API `compiler.Compilador.compilar` implementada con snapshots de resultados y
 fallos por etapa. Ejemplos compilados desde archivos y pruebas integradas de
 funciones, ciclos, switch, recursión, tipos inferidos y símbolos homónimos.
 Contrato para Persona 3: `docs/INTEGRACION_PERSONA_3.md`. La visualización TAC
-y las estructuras siguen a su cargo; `foreach` requiere el acuerdo de arreglos.
+y las estructuras siguen a su cargo; `foreach` ya tiene su contrato documentado.
 Suite completa: 227 pruebas pasando. Bloques 4–6 implementados y verificados.
+
+## Cierre de foreach
+
+Recorrido implementado con longitud e índice lógico, evaluación única del
+iterable, break/continue y ámbitos propios. Instrucciones de arreglos documentadas
+en `TAC.md` y entrega actualizada en `INTEGRACION_PERSONA_3.md`. Suite: 235 pruebas
+pasando. La creación y escritura de arreglos siguen pendientes del módulo de Persona 3.

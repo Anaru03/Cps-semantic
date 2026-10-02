@@ -72,8 +72,8 @@ continúa disponible para compatibilidad.
 El visitor de bajo nivel no valida por sí
 mismo tipos ni errores del parser. Por ahora soporta variables, asignaciones
 y expresiones de la base existente, bloques, `if/else`, `while`, `do-while`,
-`for`, `switch/case/default`, funciones globales, llamadas, retornos, `break`
-y `continue`. Otras sentencias, incluidos `foreach`, provocan `UnsupportedOperationException` para
+`for`, `foreach`, `switch/case/default`, funciones globales, llamadas, retornos, `break`
+y `continue`. Otras sentencias pendientes provocan `UnsupportedOperationException` para
 evitar traducir sus cuerpos como ejecución lineal. Las limitaciones de
 expresiones heredadas se detallan en `CHECKLIST_PERSONA_2.md`; en particular,
 ternario, llamadas a métodos y cortocircuito siguen pendientes.
@@ -160,7 +160,7 @@ combinación con ciclos y errores semánticos. Suite completa: 196 pruebas pasan
 El bloque 4 agrega funciones, argumentos, llamadas y retornos; el bloque 5
 completará los registros de activación.
 
-`foreach` sigue pendiente del contrato de longitud y acceso a arreglos con Persona 3.
+`foreach` usa el contrato de longitud y acceso descrito al final de este documento.
 
 ## Funciones y llamadas (bloque 4)
 
@@ -297,7 +297,7 @@ Estado del bloque 5: suite completa de 216 pruebas, sin fallos.
    junto con Persona 3; no buscar símbolos solo por nombre cuando hay sombras.
 5. Definir identidad de variables del programa principal dentro de bloques.
 6. Exponer datos al IDE y completar pruebas integradas y documentación de arquitectura.
-7. Acordar longitud/acceso de arreglos para `foreach` y extensiones para clases/métodos.
+7. Integrar el contrato de longitud/acceso de `foreach` con arreglos y extender clases/métodos.
 
 El diagrama del árbol permanece como último bloque de Persona 2.
 
@@ -316,3 +316,43 @@ validación semántica. `&&` y `||` conservan la convención binaria de la base.
 El contrato detallado, los puntos de extensión y la CLI de demostración están en
 `INTEGRACION_PERSONA_3.md`. La API está lista para consumo del IDE por Persona 3;
 la vista TAC y las estructuras de arreglos/clases siguen pendientes.
+
+## Foreach y contrato de arreglos
+
+El recorrido usa dos instrucciones tipadas:
+
+| Tipo | Formato | Campos |
+|---|---|---|
+| `LONGITUD_ARREGLO` | `t0 = length lista` | argumento1: referencia; resultado: cantidad de elementos |
+| `LECTURA_ARREGLO` | `x = lista[i]` | argumento1: referencia; argumento2: índice; resultado: elemento |
+
+Los índices son lógicos, desde cero: no son offsets en bytes. El backend de
+arreglos calcula tamaño de elemento y dirección física si lo necesita. Una
+asignación entre operandos de tipo arreglo copia la referencia, no sus elementos.
+`length` cuenta elementos; `load_index` lee por valor el elemento en ese índice.
+Reasignar la variable de iteración no modifica la celda del arreglo.
+
+Antes del ciclo, el iterable se evalúa una sola vez, su referencia se copia y
+su longitud se guarda. El índice empieza en cero. Se comprueba `índice < longitud`,
+se lee el elemento y se ejecuta el cuerpo. `continue` salta al incremento;
+`break` salta a la salida. La referencia, longitud e índice quedan reservados
+durante todo el recorrido, también cuando el cuerpo genera otros temporales.
+
+La variable de iteración tiene su propio ámbito, tipo semántico y posición en el
+registro de activación. Recorridos anidados mantienen índices y referencias
+independientes. Cambiar la variable fuente del iterable no cambia la referencia
+capturada. La longitud está fijada al entrar: este contrato presupone arreglos
+sin redimensionamiento durante el recorrido. Si se incorporan arreglos dinámicos,
+deberá definirse explícitamente su comportamiento.
+
+La API compila `foreach` sobre arreglos recibidos como parámetros o devueltos
+por funciones. Literales/creación y asignación por índice continúan pendientes
+del módulo de Persona 3 y no se habilitan por esta implementación.
+
+Ejemplo: `examples/tac/foreach.cps`. Los tests suministran arreglos al marco de
+entrada y ejecutan el TAC con `PilaActivaciones` y referencias `List` como modelo
+de arreglo; verifican vacíos, anidamiento, sombras, llamadas, break/continue y switch.
+
+```bash
+mvn -Dtest=ForeachTACTest test
+```

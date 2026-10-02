@@ -70,8 +70,9 @@ continúa disponible para compatibilidad.
 
 Este visitor todavía no es una API completa de compilación: no valida por sí
 mismo tipos ni errores del parser. Por ahora soporta variables, asignaciones
-y expresiones de la base existente, bloques y `if/else`. Otras sentencias,
-incluidos ciclos, switches y funciones, provocan `UnsupportedOperationException` para
+y expresiones de la base existente, bloques, `if/else`, `while`, `do-while`,
+`for`, `break` y `continue`. Otras sentencias,
+incluidos `foreach`, `switch` y funciones, provocan `UnsupportedOperationException` para
 evitar traducir sus cuerpos como ejecución lineal. Las limitaciones de
 expresiones heredadas se detallan en `CHECKLIST_PERSONA_2.md`; en particular,
 ternario, llamadas y cortocircuito siguen pendientes.
@@ -87,4 +88,36 @@ Las pruebas nuevas verifican formato, orden de saltos y ramas, destinos existent
 unicidad de etiquetas, reinicio, emisor compartido, temporales y rechazo de ciclos
 aún no implementados. `CiclosTACTest` incorpora un intérprete limitado a las
 operaciones utilizadas en sus casos para verificar los resultados del TAC.
+
+## Ciclos y saltos (bloque 2)
+
+| Construcción | Orden | Destino de `continue` |
+|---|---|---|
+| `while` | Condición, cuerpo, regreso a condición | Condición |
+| `do-while` | Cuerpo, condición, repetición o salida | Condición después del cuerpo |
+| `for` | Inicialización, condición, cuerpo, actualización, regreso | Actualización |
+
+`break` salta a la salida del contexto más cercano. Una pila conserva los
+contextos de estructuras anidadas y se restaura con `finally`, incluso si la
+traducción del cuerpo falla. `continue` busca el contexto más cercano que tenga
+destino de continuación. Esto permite agregar posteriormente un contexto de
+`switch` con continuación nula, sin ocultar el ciclo exterior.
+
+En `for`, la condición omitida se trata como verdadera; inicialización y
+actualización también son opcionales. Las expresiones se identifican por su
+posición respecto al separador, evitando confundir una actualización con una
+condición omitida. La gramática requiere `i = i + 1`, no admite `i++`.
+El resultado temporal de una asignación dentro de una expresión se libera
+después de copiarlo al destino, también para la actualización del `for`.
+
+El generador rechaza `break` y `continue` sin contexto mediante
+`IllegalStateException`, aunque el consumidor haya omitido la validación previa.
+Si falla una traducción, el TAC parcial debe descartarse o limpiarse antes de
+volver a compilar. No se implementa rollback de instrucciones.
+
+Ejemplo combinado: `examples/tac/ciclos.cps`. Pruebas del bloque:
+
+```bash
+mvn -Dtest=CiclosTACTest test
+```
 

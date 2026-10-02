@@ -55,9 +55,9 @@ class ControlCondicionalTACTest {
         }
     }
 
-    @Test void noTraduceUnCicloComoSiFueraUnBloqueLineal() {
+    @Test void rechazaSentenciasTodaviaNoImplementadas() {
         assertThrows(UnsupportedOperationException.class,
-                () -> generar("while (true) { let x: integer = 1; }"));
+                () -> generar("foreach (x in [1, 2]) { let y: integer = x; }"));
     }
 
     @Test void comparteEmisorDeExpresionesYSentencias() {

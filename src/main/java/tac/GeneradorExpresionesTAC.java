@@ -344,6 +344,8 @@ public final class GeneradorExpresionesTAC
                 valor
         );
 
+        liberarSiTemporal(valor);
+
         return destino;
     }
 

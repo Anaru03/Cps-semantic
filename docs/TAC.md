@@ -299,7 +299,7 @@ Estado del bloque 5: suite completa de 216 pruebas, sin fallos.
 6. Exponer datos al IDE y completar pruebas integradas y documentación de arquitectura.
 7. Integrar el contrato de longitud/acceso de `foreach` con arreglos y extender clases/métodos.
 
-El diagrama del árbol permanece como último bloque de Persona 2.
+El diagrama del árbol se completó como último bloque de Persona 2; ver `DIAGRAMA_ARBOL.md`.
 
 ## API de compilación (bloque 6)
 

@@ -8,8 +8,6 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode;
-import org.antlr.v4.runtime.tree.Trees;
 import semantic.AnalisisSemantico;
 import semantic.AnalizadorSemantico;
 import semantic.Ambito;
@@ -45,7 +43,6 @@ import java.awt.FlowLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -70,7 +67,7 @@ public final class CompiscriptIDE extends JFrame {
 
     private final JTextArea editor = new JTextArea();
     private final JTextArea salida = new JTextArea();
-    private final JTree arbolSintactico = new JTree(new DefaultMutableTreeNode("(sin compilar)"));
+    private final DiagramaArbol arbolSintactico = new DiagramaArbol();
     private final JTree tablaSimbolos = new JTree(new DefaultMutableTreeNode("(sin compilar)"));
     private final JLabel estado = new JLabel(" Listo");
 
@@ -124,11 +121,8 @@ public final class CompiscriptIDE extends JFrame {
         JScrollPane panelSalida = new JScrollPane(salida);
         estilizarScroll(panelSalida);
 
-        JScrollPane panelArbol = new JScrollPane(arbolSintactico);
         JScrollPane panelTabla = new JScrollPane(tablaSimbolos);
-        estilizarArbol(arbolSintactico);
         estilizarArbol(tablaSimbolos);
-        estilizarScroll(panelArbol);
         estilizarScroll(panelTabla);
 
         JTabbedPane pestanas = new JTabbedPane();
@@ -137,7 +131,7 @@ public final class CompiscriptIDE extends JFrame {
         pestanas.setForeground(TEXTO);
         pestanas.setBorder(BorderFactory.createLineBorder(BORDE));
         pestanas.addTab("Errores", panelSalida);
-        pestanas.addTab("Árbol sintáctico", panelArbol);
+        pestanas.addTab("Árbol sintáctico", arbolSintactico);
         pestanas.addTab("Tabla de símbolos", panelTabla);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelEditor, pestanas);
@@ -235,8 +229,7 @@ public final class CompiscriptIDE extends JFrame {
                 }
             });
             ParseTree arbol = parser.program();
-            arbolSintactico.setModel(new DefaultTreeModel(nodoDelArbol(arbol, parser)));
-            expandirHasta(arbolSintactico, 2);
+            arbolSintactico.mostrar(arbol, parser);
 
             if (!erroresLexicos.isEmpty() || !erroresSintaxis.isEmpty()) {
                 List<String> erroresAnalisis = new ArrayList<>(erroresLexicos);
@@ -287,16 +280,6 @@ public final class CompiscriptIDE extends JFrame {
                 receptor.accept("Lexico " + linea + ":" + columna + " - " + mensaje);
             }
         });
-    }
-
-    /** Construye la representacion visual (JTree) del arbol sintactico generado por ANTLR. */
-    private DefaultMutableTreeNode nodoDelArbol(ParseTree nodo, CompiscriptParser parser) {
-        String etiqueta = nodo instanceof TerminalNode
-                ? "'" + nodo.getText() + "'"
-                : Trees.getNodeText(nodo, Arrays.asList(parser.getRuleNames()));
-        DefaultMutableTreeNode raiz = new DefaultMutableTreeNode(etiqueta);
-        for (int i = 0; i < nodo.getChildCount(); i++) raiz.add(nodoDelArbol(nodo.getChild(i), parser));
-        return raiz;
     }
 
     /** Construye la representacion visual (JTree) de la tabla de simbolos, ambito por ambito. */

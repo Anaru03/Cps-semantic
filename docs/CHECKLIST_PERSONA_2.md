@@ -152,7 +152,7 @@ El contrato y la lista de integración para el bloque 6 están en `docs/TAC.md`.
 - [ ] Programas `.cps` de demostración: condicional, ciclos anidados, switch y factorial recursivo.
 - [ ] Ejemplo integrado con `foreach`; completar arreglos/clases con Persona 3 cuando esté su módulo.
 - [ ] Documentar convenciones, arquitectura, ejecución, supuestos y límites en `docs`.
-- [ ] Cambiar la visualización del árbol sintáctico en el IDE: reemplazar la vista
+- [x] Cambiar la visualización del árbol sintáctico en el IDE: reemplazar la vista
   jerárquica tipo explorador de archivos por una imagen/diagrama con nodos y conexiones.
   A cargo de Persona 2, como último bloque; comprobar que representa el árbol
   generado por el parser y que los programas grandes se pueden recorrer con scroll o zoom.
@@ -190,3 +190,10 @@ Recorrido implementado con longitud e índice lógico, evaluación única del
 iterable, break/continue y ámbitos propios. Instrucciones de arreglos documentadas
 en `TAC.md` y entrega actualizada en `INTEGRACION_PERSONA_3.md`. Suite: 235 pruebas
 pasando. La creación y escritura de arreglos siguen pendientes del módulo de Persona 3.
+
+## Cierre del diagrama del árbol
+
+Vista de nodos y conexiones con zoom, scroll, arrastre, búsqueda y plegado.
+Modelo completo, conversión en segundo plano y layout sin recursión. Tests con
+15 000 niveles y 3 000 declaraciones; suite: 240 pruebas pasando.
+Documentación de uso y límites: `docs/DIAGRAMA_ARBOL.md`.

@@ -361,7 +361,7 @@ La interfaz permite trabajar con código Compiscript y visualizar información p
 Actualmente incluye visualización de:
 
 - Errores
-- Árbol sintáctico
+- Árbol sintáctico como diagrama con zoom, búsqueda y ramas plegables
 - Tabla de símbolos
 
 La integración de la representación intermedia TAC con la interfaz forma parte de la evolución del Proyecto 2.
@@ -424,7 +424,7 @@ mvn test
 Estado actual:
 
 ```text
-Tests run: 235
+Tests run: 240
 Failures: 0
 Errors: 0
 Skipped: 0

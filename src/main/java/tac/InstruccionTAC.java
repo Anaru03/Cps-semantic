@@ -3,7 +3,8 @@ package tac;
 import java.util.Objects;
 
 public final class InstruccionTAC {
-    public enum Tipo { OPERACION, ETIQUETA, SALTO, SALTO_CONDICIONAL }
+    public enum Tipo { OPERACION, ETIQUETA, SALTO, SALTO_CONDICIONAL,
+        FUNCION, FIN_FUNCION, PARAMETRO, ARGUMENTO, LLAMADA, RETORNO }
 
     private final Tipo tipo;
 
@@ -26,7 +27,8 @@ public final class InstruccionTAC {
         this.operador = Objects.requireNonNull(operador);
         this.argumento1 = argumento1;
         this.argumento2 = argumento2;
-        this.resultado = Objects.requireNonNull(resultado);
+        this.resultado = tipo == Tipo.LLAMADA || tipo == Tipo.RETORNO
+                || tipo == Tipo.ARGUMENTO ? resultado : Objects.requireNonNull(resultado);
     }
 
     public static InstruccionTAC etiqueta(String nombre) {
@@ -43,6 +45,26 @@ public final class InstruccionTAC {
     }
 
     public Tipo tipo() { return tipo; }
+
+    public static InstruccionTAC funcion(String nombre) {
+        return new InstruccionTAC(Tipo.FUNCION, "function", null, null, nombre);
+    }
+    public static InstruccionTAC finFuncion(String nombre) {
+        return new InstruccionTAC(Tipo.FIN_FUNCION, "end", null, null, nombre);
+    }
+    public static InstruccionTAC parametro(String nombre, int posicion) {
+        return new InstruccionTAC(Tipo.PARAMETRO, "param", Integer.toString(posicion), null, nombre);
+    }
+    public static InstruccionTAC argumento(String valor) {
+        return new InstruccionTAC(Tipo.ARGUMENTO, "arg", Objects.requireNonNull(valor), null, null);
+    }
+    public static InstruccionTAC llamada(String nombre, int cantidad, String resultado) {
+        return new InstruccionTAC(Tipo.LLAMADA, "call", Objects.requireNonNull(nombre),
+                Integer.toString(cantidad), resultado);
+    }
+    public static InstruccionTAC retorno(String valor) {
+        return new InstruccionTAC(Tipo.RETORNO, "return", valor, null, null);
+    }
 
     public String operador() {
         return operador;
@@ -63,6 +85,13 @@ public final class InstruccionTAC {
     @Override
     public String toString() {
         switch (tipo) {
+            case FUNCION: return "function " + resultado;
+            case FIN_FUNCION: return "end function " + resultado;
+            case PARAMETRO: return resultado + " = param " + argumento1;
+            case ARGUMENTO: return "arg " + argumento1;
+            case LLAMADA: return (resultado == null ? "" : resultado + " = ")
+                    + "call " + argumento1 + ", " + argumento2;
+            case RETORNO: return "return" + (argumento1 == null ? "" : " " + argumento1);
             case ETIQUETA: return resultado + ":";
             case SALTO: return "goto " + resultado;
             case SALTO_CONDICIONAL: return "if " + argumento1 + " goto " + resultado;

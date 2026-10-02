@@ -14,6 +14,23 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
     // contexto más cercano; continue busca el ciclo más cercano.
     private record ContextoControl(String salida, String continuacion) { }
     private final Deque<ContextoControl> contextos = new ArrayDeque<>();
+    private DescriptorFuncion funcionActual;
+
+    @Override public Void visitProgram(CompiscriptParser.ProgramContext ctx) {
+        for (var sentencia : ctx.statement()) {
+            var funcion = sentencia.functionDeclaration();
+            if (funcion != null) {
+                var parametros = new java.util.ArrayList<DescriptorFuncion.Parametro>();
+                if (funcion.parameters() != null) for (var parametro : funcion.parameters().parameter())
+                    parametros.add(new DescriptorFuncion.Parametro(parametro.Identifier().getText(),
+                            parametro.type() == null ? "unknown" : parametro.type().getText()));
+                generador.registrarFuncion(new DescriptorFuncion(funcion.Identifier().getText(), parametros,
+                        funcion.type() == null ? "void" : funcion.type().getText()));
+            }
+        }
+        for (var sentencia : ctx.statement()) visit(sentencia);
+        return null;
+    }
 
     public GeneradorSentenciasTAC() { this(new GeneradorTAC()); }
 
@@ -32,17 +49,65 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         if (ctx.doWhileStatement() != null) return visit(ctx.doWhileStatement());
         if (ctx.forStatement() != null) return visit(ctx.forStatement());
         if (ctx.switchStatement() != null) return visit(ctx.switchStatement());
+        if (ctx.functionDeclaration() != null) return visit(ctx.functionDeclaration());
+        if (ctx.returnStatement() != null) return visit(ctx.returnStatement());
         if (ctx.breakStatement() != null) return visit(ctx.breakStatement());
         if (ctx.continueStatement() != null) return visit(ctx.continueStatement());
         if (ctx.block() != null) return visit(ctx.block());
         if (ctx.variableDeclaration() != null || ctx.assignment() != null
                 || ctx.expressionStatement() != null) {
-            String valor = expresiones.visit(ctx.getChild(0));
+            String valor = ctx.expressionStatement() == null ? expresiones.visit(ctx.getChild(0))
+                    : expresiones.visit(ctx.expressionStatement().expression());
             generador.liberarTemporal(valor);
             return null;
         }
         throw new UnsupportedOperationException("Sentencia TAC no implementada: "
                 + ctx.getStart().getText() + " en línea " + ctx.getStart().getLine());
+    }
+
+    @Override public Void visitFunctionDeclaration(CompiscriptParser.FunctionDeclarationContext ctx) {
+        if (funcionActual != null || !contextos.isEmpty())
+            throw new UnsupportedOperationException("Funciones anidadas no soportadas en TAC");
+        var funcion = generador.funcion(ctx.Identifier().getText());
+        if (funcion.devuelveValor() && !garantizaRetorno(ctx.block()))
+            throw new IllegalArgumentException("No se garantiza retorno en función: " + funcion.nombre());
+        String despues = generador.nuevaEtiqueta();
+        generador.generarSalto(despues);
+        generador.emitir(InstruccionTAC.funcion(funcion.nombre()));
+        for (int i = 0; i < funcion.parametros().size(); i++)
+            generador.emitir(InstruccionTAC.parametro(
+                    funcion.parametros().get(i).nombre(), i));
+        funcionActual = funcion;
+        try { visit(ctx.block()); }
+        finally { funcionActual = null; }
+        // Retorno implícito únicamente para funciones sin valor.
+        if (!funcion.devuelveValor()) generador.emitir(InstruccionTAC.retorno(null));
+        generador.emitir(InstruccionTAC.finFuncion(funcion.nombre()));
+        generador.emitirEtiqueta(despues);
+        return null;
+    }
+
+    // Comprobación conservadora: retorno directo, bloque o if con ambas ramas.
+    private boolean garantizaRetorno(CompiscriptParser.BlockContext bloque) {
+        for (var sentencia : bloque.statement()) {
+            if (sentencia.returnStatement() != null) return true;
+            if (sentencia.block() != null && garantizaRetorno(sentencia.block())) return true;
+            var condicional = sentencia.ifStatement();
+            if (condicional != null && condicional.block().size() == 2
+                    && garantizaRetorno(condicional.block(0)) && garantizaRetorno(condicional.block(1))) return true;
+        }
+        return false;
+    }
+
+    @Override public Void visitReturnStatement(CompiscriptParser.ReturnStatementContext ctx) {
+        if (funcionActual == null) throw new IllegalStateException("return fuera de una función");
+        if (funcionActual.devuelveValor() != (ctx.expression() != null))
+            throw new IllegalArgumentException("Retorno incompatible: " + funcionActual.nombre());
+        String valor = ctx.expression() == null ? null : expresiones.visit(ctx.expression());
+        if (ctx.expression() != null && valor == null) throw new IllegalArgumentException("Retorno sin valor");
+        generador.emitir(InstruccionTAC.retorno(valor));
+        generador.liberarTemporal(valor);
+        return null;
     }
 
     private void emitirCondicion(CompiscriptParser.ExpressionContext ctx,

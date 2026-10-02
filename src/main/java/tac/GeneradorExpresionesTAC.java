@@ -24,6 +24,36 @@ public final class GeneradorExpresionesTAC
         return generador.codigo();
     }
 
+    @Override public String visitLeftHandSide(CompiscriptParser.LeftHandSideContext ctx) {
+        if (ctx.suffixOp().isEmpty()) return visit(ctx.primaryAtom());
+        if (!(ctx.primaryAtom() instanceof CompiscriptParser.IdentifierExprContext id)
+                || ctx.suffixOp().size() != 1
+                || !(ctx.suffixOp(0) instanceof CompiscriptParser.CallExprContext llamada))
+            throw new UnsupportedOperationException("Acceso TAC no implementado: " + ctx.getText());
+        var funcion = generador.funcion(id.Identifier().getText());
+        var args = llamada.arguments() == null
+                ? java.util.List.<CompiscriptParser.ExpressionContext>of() : llamada.arguments().expression();
+        if (args.size() != funcion.parametros().size())
+            throw new IllegalArgumentException("Cantidad de argumentos incompatible: " + funcion.nombre());
+        var valores = new java.util.ArrayList<String>();
+        try {
+            // Congelar cada argumento antes de evaluar el siguiente; las llamadas
+            // internas emiten sus propios arg/call antes de los argumentos externos.
+            for (var arg : args) {
+                String valor = visit(arg);
+                if (valor == null) throw new IllegalArgumentException("Argumento sin valor");
+                String copia = generador.temporales().nuevoTemporal();
+                generador.generarAsignacion(copia, valor);
+                liberarSiTemporal(valor);
+                valores.add(copia);
+            }
+            for (String valor : valores) generador.emitir(InstruccionTAC.argumento(valor));
+            String resultado = funcion.devuelveValor() ? generador.temporales().nuevoTemporal() : null;
+            generador.emitir(InstruccionTAC.llamada(funcion.nombre(), valores.size(), resultado));
+            return resultado;
+        } finally { for (String valor : valores) generador.liberarTemporal(valor); }
+    }
+
     @Override
     public String visitLiteralExpr(
             CompiscriptParser.LiteralExprContext ctx) {
@@ -101,8 +131,7 @@ public final class GeneradorExpresionesTAC
             String operador =
                     ctx.getChild(2 * i - 1).getText();
 
-            String derecho =
-                    visit(ctx.unaryExpr(i));
+            String derecho = visit(ctx.unaryExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -134,8 +163,7 @@ public final class GeneradorExpresionesTAC
             String operador =
                     ctx.getChild(2 * i - 1).getText();
 
-            String derecho =
-                    visit(ctx.multiplicativeExpr(i));
+            String derecho = visit(ctx.multiplicativeExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -167,8 +195,7 @@ public final class GeneradorExpresionesTAC
             String operador =
                     ctx.getChild(2 * i - 1).getText();
 
-            String derecho =
-                    visit(ctx.additiveExpr(i));
+            String derecho = visit(ctx.additiveExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -200,8 +227,7 @@ public final class GeneradorExpresionesTAC
             String operador =
                     ctx.getChild(2 * i - 1).getText();
 
-            String derecho =
-                    visit(ctx.relationalExpr(i));
+            String derecho = visit(ctx.relationalExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -230,8 +256,7 @@ public final class GeneradorExpresionesTAC
              i < ctx.equalityExpr().size();
              i++) {
 
-            String derecho =
-                    visit(ctx.equalityExpr(i));
+            String derecho = visit(ctx.equalityExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -260,8 +285,7 @@ public final class GeneradorExpresionesTAC
              i < ctx.logicalAndExpr().size();
              i++) {
 
-            String derecho =
-                    visit(ctx.logicalAndExpr(i));
+            String derecho = visit(ctx.logicalAndExpr(i));
 
             String resultado =
                     generador.generarOperacion(
@@ -283,15 +307,15 @@ public final class GeneradorExpresionesTAC
     public String visitVariableDeclaration(
             CompiscriptParser.VariableDeclarationContext ctx) {
 
+        // La semántica evalúa el inicializador antes de declarar el nombre nuevo.
+        String valor = ctx.initializer() == null ? null : visit(ctx.initializer().expression());
+
         String identificador =
                 ctx.Identifier().getText();
 
         if (ctx.initializer() == null) {
             return identificador;
         }
-
-        String valor =
-                visit(ctx.initializer().expression());
 
         generador.generarAsignacion(
                 identificador,

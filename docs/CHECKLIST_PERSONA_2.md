@@ -165,3 +165,7 @@ El siguiente bloque es funciones, argumentos, llamadas y retornos.
 Persona 3 conserva la responsabilidad de extender símbolos, generar TAC de arreglos
 y clases e integrar la visualización del TAC en Swing. La integración final y las
 pruebas combinadas siguen siendo trabajo compartido.
+
+## Bloque 4
+Funciones, argumentos, llamadas y retornos implementados; 207 pruebas pasan.
+Registros de activación e integración semántica quedan para bloques 5 y 6.

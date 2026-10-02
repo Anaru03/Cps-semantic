@@ -9,6 +9,22 @@ public final class GeneradorTAC {
     private final List<InstruccionTAC> instrucciones;
     private final AdministradorTemporales temporales;
     private final AdministradorEtiquetas etiquetas = new AdministradorEtiquetas();
+    private final java.util.Map<String, DescriptorFuncion> funciones = new java.util.LinkedHashMap<>();
+    public void registrarFuncion(DescriptorFuncion funcion) {
+        if (funciones.putIfAbsent(funcion.nombre(), funcion) != null)
+            throw new IllegalArgumentException("Función duplicada: " + funcion.nombre());
+    }
+    public DescriptorFuncion funcion(String nombre) {
+        var funcion = funciones.get(nombre);
+        if (funcion == null) throw new IllegalArgumentException("Función desconocida: " + nombre);
+        return funcion;
+    }
+    public java.util.Map<String, DescriptorFuncion> funciones() {
+        return java.util.Collections.unmodifiableMap(funciones);
+    }
+    public void emitir(InstruccionTAC instruccion) {
+        instrucciones.add(java.util.Objects.requireNonNull(instruccion));
+    }
 
     public GeneradorTAC() {
         instrucciones = new ArrayList<>();
@@ -20,9 +36,12 @@ public final class GeneradorTAC {
             String argumento1,
             String argumento2) {
 
+        java.util.Objects.requireNonNull(argumento1, "Operando sin valor TAC");
+        java.util.Objects.requireNonNull(argumento2, "Operando sin valor TAC");
+
         String temporal = temporales.nuevoTemporal();
 
-        instrucciones.add(
+        emitir(
                 new InstruccionTAC(
                         operador,
                         argumento1,
@@ -38,9 +57,11 @@ public final class GeneradorTAC {
             String operador,
             String argumento) {
 
+        java.util.Objects.requireNonNull(argumento, "Operando sin valor TAC");
+
         String temporal = temporales.nuevoTemporal();
 
-        instrucciones.add(
+        emitir(
                 new InstruccionTAC(
                         operador,
                         argumento,
@@ -56,7 +77,9 @@ public final class GeneradorTAC {
             String destino,
             String valor) {
 
-        instrucciones.add(
+        java.util.Objects.requireNonNull(valor, "Asignación sin valor TAC");
+
+        emitir(
                 new InstruccionTAC(
                         "",
                         valor,
@@ -107,5 +130,6 @@ public final class GeneradorTAC {
         instrucciones.clear();
         temporales.reiniciar();
         etiquetas.reiniciar();
+        funciones.clear();
     }
 }

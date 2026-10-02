@@ -12,8 +12,8 @@ x = t0
 ```
 
 Los operandos se representan como texto. El administrador de temporales crea
-`t0`, `t1`, etc. y recicla valores liberados. Sigue pendiente distinguir estos
-operandos de variables del usuario con el mismo nombre y enlazarlos con símbolos.
+`t0`, `t1`, etc. y recicla valores liberados. La reserva de nombres para evitar colisiones se implementará en el bloque 5;
+la asociación con símbolos semánticos se completará en el bloque 6.
 
 ## Control condicional
 
@@ -68,14 +68,14 @@ También acepta un `GeneradorTAC` externo. Internamente lo comparte con
 y administrador de temporales. El constructor sin argumentos de expresiones
 continúa disponible para compatibilidad.
 
-Este visitor todavía no es una API completa de compilación: no valida por sí
+El visitor de bajo nivel no valida por sí
 mismo tipos ni errores del parser. Por ahora soporta variables, asignaciones
 y expresiones de la base existente, bloques, `if/else`, `while`, `do-while`,
-`for`, `switch/case/default`, `break` y `continue`. Otras sentencias,
-incluidos `foreach` y funciones, provocan `UnsupportedOperationException` para
+`for`, `switch/case/default`, funciones globales, llamadas, retornos, `break`
+y `continue`. Otras sentencias, incluidos `foreach`, provocan `UnsupportedOperationException` para
 evitar traducir sus cuerpos como ejecución lineal. Las limitaciones de
 expresiones heredadas se detallan en `CHECKLIST_PERSONA_2.md`; en particular,
-ternario, llamadas y cortocircuito siguen pendientes.
+ternario, llamadas a métodos y cortocircuito siguen pendientes.
 
 ## Verificación
 
@@ -156,7 +156,74 @@ Los nueve tests cubren selección, ausencia de coincidencia, default, switch
 vacío, caída entre casos, selector con efectos secundarios, anidamiento,
 combinación con ciclos y errores semánticos. Suite completa: 196 pruebas pasan.
 
-El bloque 4 pendiente es funciones, argumentos, llamadas y retornos; después
-se completarán los registros de activación y la representación de recursión.
+El bloque 4 agrega funciones, argumentos, llamadas y retornos; el bloque 5
+completará los registros de activación.
 
 `foreach` sigue pendiente del contrato de longitud y acceso a arreglos con Persona 3.
+
+## Funciones y llamadas (bloque 4)
+
+El visitor registra descriptores de las funciones declaradas directamente en
+el programa: nombre, nombres/tipos de parámetros y tipo de retorno. Pueden
+consultarse mediante `generador.funciones()`. Estos datos son la interfaz inicial
+para los layouts de activación del bloque 5. Los tipos se conservan como texto
+de la gramática; las validaciones de compatibilidad corresponden al analizador
+semántico previo, no a este registro.
+
+```text
+goto L0
+function sumar
+a = param 0
+b = param 1
+t0 = a + b
+return t0
+end function sumar
+L0:
+t0 = 2
+t1 = 3
+arg t0
+arg t1
+t2 = call sumar, 2
+x = t2
+```
+
+- `function nombre` identifica la entrada; un salto permite que el programa
+  principal omita el cuerpo de la declaración.
+- `nombre = param posición` recibe un argumento por valor; posiciones desde cero.
+- Los argumentos se evalúan de izquierda a derecha y se copian a temporales
+  antes de evaluar el siguiente. Esto preserva sus valores frente a asignaciones.
+- Todos los `arg` de una llamada se emiten después de evaluar sus argumentos,
+  incluidas las llamadas internas. `call nombre, cantidad` consume exactamente
+  esos argumentos; no deja argumentos pendientes del llamador en una llamada interna.
+- Una llamada con valor guarda su retorno en un temporal; una función sin tipo
+  de retorno es `void` y su llamada no crea temporal de resultado.
+- `return valor` devuelve y termina la invocación; `return` termina sin valor.
+  Se agrega retorno implícito únicamente para funciones `void`.
+- `end function` delimita el cuerpo; no representa un retorno válido de una función
+  con valor. Estas funciones deben garantizar un `return`.
+
+La comprobación de retorno es conservadora: reconoce retornos directos,
+bloques y `if/else` cuyas dos ramas retornan. No prueba que un ciclo o switch
+retorne en todos los caminos; usar un retorno final después de esas estructuras.
+
+En estas instrucciones, `resultado()` contiene el nombre para `FUNCION` y
+`FIN_FUNCION`, el parámetro para `PARAMETRO` y el temporal (o null) para `LLAMADA`.
+`argumento1()` contiene posición, valor de argumento, nombre invocado o valor
+retornado, según el tipo. `argumento2()` contiene la cantidad en `LLAMADA`.
+
+Los temporales y locales deben vivir en el marco de cada invocación, incluso
+si tienen nombres iguales en distintas funciones. El bloque 4 define el contrato de llamadas. Los layouts y la pila de activaciones
+se implementarán en el bloque 5. Las pruebas verifican llamadas anidadas y
+factorial con memorias independientes; no modelan aún acceso a globals.
+
+Se admiten llamadas directas a funciones globales y recursión directa. Se
+rechazan funciones anidadas, métodos, encadenamiento de llamadas y accesos
+compuestos. El registro TAC no autoriza referencias adelantadas: el programa
+debe pasar la semántica existente, que resuelve declaraciones en orden.
+
+Ejemplo en `examples/tac/funciones.cps`. Pruebas:
+
+```bash
+mvn -Dtest=FuncionesTACTest test
+mvn test
+```

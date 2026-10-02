@@ -11,6 +11,9 @@ public final class AdministradorTemporales {
 
     private final Deque<String> disponibles;
     private final Set<String> enUso;
+    private final Set<String> reservados = new HashSet<>();
+
+    public void reservarNombre(String nombre) { reservados.add(nombre); }
 
     public AdministradorTemporales() {
         siguiente = 0;
@@ -24,8 +27,7 @@ public final class AdministradorTemporales {
         if (!disponibles.isEmpty()) {
             temporal = disponibles.removeFirst();
         } else {
-            temporal = "t" + siguiente;
-            siguiente++;
+            do { temporal = "t" + siguiente++; } while (reservados.contains(temporal));
         }
 
         enUso.add(temporal);
@@ -55,5 +57,6 @@ public final class AdministradorTemporales {
         siguiente = 0;
         disponibles.clear();
         enUso.clear();
+        reservados.clear();
     }
 }

@@ -69,7 +69,7 @@ public final class GeneradorExpresionesTAC
     public String visitIdentifierExpr(
             CompiscriptParser.IdentifierExprContext ctx) {
 
-        return ctx.getText();
+        return generador.resolverNombre(ctx.getText());
     }
 
     @Override
@@ -311,7 +311,9 @@ public final class GeneradorExpresionesTAC
         String valor = ctx.initializer() == null ? null : visit(ctx.initializer().expression());
 
         String identificador =
-                ctx.Identifier().getText();
+                generador.declararLocal(ctx.Identifier().getText(),
+                        ctx.typeAnnotation() == null ? "unknown" : ctx.typeAnnotation().type().getText(),
+                        RegistroActivacion.Clase.LOCAL);
 
         if (ctx.initializer() == null) {
             return identificador;
@@ -338,7 +340,7 @@ public final class GeneradorExpresionesTAC
         }
 
         String identificador =
-                ctx.Identifier().getText();
+                generador.resolverNombre(ctx.Identifier().getText());
 
         String valor =
                 visit(ctx.expression(0));
@@ -358,7 +360,7 @@ public final class GeneradorExpresionesTAC
             CompiscriptParser.AssignExprContext ctx) {
 
         String destino =
-                ctx.lhs.getText();
+                generador.resolverNombre(ctx.lhs.getText());
 
         String valor =
                 visit(ctx.assignmentExpr());

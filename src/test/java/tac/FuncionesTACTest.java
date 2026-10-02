@@ -23,10 +23,17 @@ class FuncionesTACTest {
     // Modelo de llamadas para verificar el contrato, no un runtime de producción.
     static class Maquina {
         final List<InstruccionTAC> codigo;
+        final Map<String, RegistroActivacion> registros;
+        final PilaActivaciones pila = new PilaActivaciones();
+        Map<String, Integer> globales = new HashMap<>();
         final Map<String, Integer> etiquetas = new HashMap<>(), funciones = new HashMap<>();
         int pasos;
         Maquina(GeneradorSentenciasTAC visitor) {
-            codigo = visitor.generador().instrucciones();
+            this(visitor.generador().instrucciones(), visitor.generador().registrosActivacion());
+        }
+        private Maquina(List<InstruccionTAC> instrucciones, Map<String, RegistroActivacion> layouts) {
+            codigo = instrucciones;
+            registros = layouts;
             for (int i = 0; i < codigo.size(); i++) {
                 var ins = codigo.get(i);
                 if (ins.tipo() == InstruccionTAC.Tipo.ETIQUETA) assertNull(etiquetas.put(ins.resultado(), i));
@@ -57,7 +64,10 @@ class FuncionesTACTest {
                     case LLAMADA -> {
                         assertEquals(Integer.parseInt(ins.argumento2()), pendientes.size());
                         var args = List.copyOf(pendientes); pendientes.clear();
-                        Integer retorno = ejecutar(funciones.get(ins.argumento1()), new HashMap<>(), args);
+                        var marco = pila.entrar(registros.get(ins.argumento1()), args, pc, ins.resultado());
+                        Integer retorno = ejecutar(funciones.get(ins.argumento1()), memoriaMarco(marco, memoria), args);
+                        var regreso = pila.salir(retorno);
+                        assertEquals(pc, regreso.direccion());
                         if (ins.resultado() != null) memoria.put(ins.resultado(), Objects.requireNonNull(retorno));
                     }
                     case RETORNO -> { return ins.argumento1() == null ? null : valor(ins.argumento1(), memoria); }
@@ -74,6 +84,26 @@ class FuncionesTACTest {
                 }
             }
             return null;
+        }
+        Map<String, Integer> memoriaMarco(RegistroActivacion.Instancia marco, Map<String, Integer> llamador) {
+            // La memoria principal se mantiene compartida para globals; los slots
+            // de cualquier activación se consultan exclusivamente en su marco.
+            if (pila.profundidad() == 1) globales = llamador;
+            return new AbstractMap<>() {
+                private boolean local(Object key) {
+                    return marco.layout().posiciones().stream().anyMatch(p -> p.operando().equals(key));
+                }
+                @Override public Integer get(Object key) {
+                    return local(key) ? (Integer) marco.leer((String) key) : globales.get(key);
+                }
+                @Override public boolean containsKey(Object key) { return get(key) != null; }
+                @Override public Integer put(String key, Integer value) {
+                    Integer previo = get(key);
+                    if (local(key)) marco.escribir(key, value); else globales.put(key, value);
+                    return previo;
+                }
+                @Override public Set<Entry<String, Integer>> entrySet() { throw new UnsupportedOperationException(); }
+            };
         }
     }
     private Map<String, Integer> ejecutar(String fuente) {
@@ -145,5 +175,46 @@ class FuncionesTACTest {
         assertEquals("return", InstruccionTAC.retorno(null).toString());
         visitor.generador().limpiar();
         assertTrue(visitor.generador().funciones().isEmpty());
+    }
+    @Test void recursionPreservaLocalesYResultadosPreviosDelLlamador() {
+        assertEquals(15, ejecutar("function suma(n: integer): integer { let guardado: integer = n;"
+                + " if (n <= 0) { return 0; } let resto: integer = suma(n - 1);"
+                + " return guardado + resto; } let x: integer = suma(5);").get("x"));
+    }
+    @Test void parametrosYSombrasDeBloqueTienenAlmacenamientoDistinto() {
+        assertEquals(3, ejecutar("function f(n: integer): integer { { let n: integer = 9; n = n + 1; }"
+                + " return n; } let x: integer = f(3);").get("x"));
+    }
+    @Test void globalesSonCompartidasPeroLocalesNoLasSobrescriben() {
+        assertEquals(5, ejecutar("let g: integer = 1; function f(): integer { g = g + 1;"
+                + " { let g: integer = 99; } return g; } let a: integer = f();"
+                + " let x: integer = a + f();").get("x"));
+    }
+    @Test void nombresDeUsuarioNoColisionanConTemporales() {
+        assertEquals(12, ejecutar("function f(t0: integer): integer { let t1: integer = t0 + 1;"
+                + " return t1 + t0; } let t0: integer = 5; let x: integer = f(t0 + 0) + 1;").get("x"));
+    }
+    @Test void inicializadorDeSombraLeeElNombreExterior() {
+        assertEquals(4, ejecutar("function f(n: integer): integer { let x: integer = 0;"
+                + " { let n: integer = n + 1; x = n; } return x; } let x: integer = f(3);").get("x"));
+    }
+    @Test void layoutsGeneradosIncluyenParametrosLocalesYTemporalesDeCadaFuncion() {
+        var visitor = traducir("function f(n: integer): integer { let x: integer = n + 1;"
+                + " { let x: integer = 9; } return x; }"
+                + " function g(n: integer): integer { return n + 2; }", true);
+        var registros = visitor.generador().registrosActivacion();
+        assertEquals(2, registros.size());
+        var f = registros.get("f");
+        assertEquals(RegistroActivacion.Clase.PARAMETRO, f.posiciones().get(0).clase());
+        assertEquals("integer", f.posiciones().get(0).tipo());
+        var sombras = f.posiciones().stream().filter(p -> p.nombre().equals("x")).toList();
+        assertEquals(2, sombras.size());
+        assertNotEquals(sombras.get(0).operando(), sombras.get(1).operando());
+        assertNotEquals(sombras.get(0).offset(), sombras.get(1).offset());
+        assertTrue(f.posiciones().stream().anyMatch(p -> p.clase() == RegistroActivacion.Clase.TEMPORAL));
+        for (int i = 0; i < f.posiciones().size(); i++) assertEquals(i + 3, f.posiciones().get(i).offset());
+        assertThrows(UnsupportedOperationException.class, () -> registros.clear());
+        visitor.generador().limpiar();
+        assertTrue(registros.isEmpty());
     }
 }

@@ -12,8 +12,9 @@ x = t0
 ```
 
 Los operandos se representan como texto. El administrador de temporales crea
-`t0`, `t1`, etc. y recicla valores liberados. La reserva de nombres para evitar colisiones se implementará en el bloque 5;
-la asociación con símbolos semánticos se completará en el bloque 6.
+`t0`, `t1`, etc. y recicla valores liberados. Al generar programas se reservan
+los identificadores del usuario para evitar colisiones. La asociación con símbolos
+semánticos se completa en el bloque 6.
 
 ## Control condicional
 
@@ -173,9 +174,9 @@ semántico previo, no a este registro.
 ```text
 goto L0
 function sumar
-a = param 0
-b = param 1
-t0 = a + b
+%sumar.0.a = param 0
+%sumar.1.b = param 1
+t0 = %sumar.0.a + %sumar.1.b
 return t0
 end function sumar
 L0:
@@ -212,9 +213,10 @@ En estas instrucciones, `resultado()` contiene el nombre para `FUNCION` y
 retornado, según el tipo. `argumento2()` contiene la cantidad en `LLAMADA`.
 
 Los temporales y locales deben vivir en el marco de cada invocación, incluso
-si tienen nombres iguales en distintas funciones. El bloque 4 define el contrato de llamadas. Los layouts y la pila de activaciones
-se implementarán en el bloque 5. Las pruebas verifican llamadas anidadas y
-factorial con memorias independientes; no modelan aún acceso a globals.
+si tienen nombres iguales en distintas funciones. El bloque 5 implementa layouts
+y una pila con instancias independientes. El intérprete de tests usa esa pila
+para demostrar llamadas anidadas y factorial recursivo, y comparte una memoria
+de globales entre invocaciones. No es un runtime del IDE.
 
 Se admiten llamadas directas a funciones globales y recursión directa. Se
 rechazan funciones anidadas, métodos, encadenamiento de llamadas y accesos
@@ -227,3 +229,74 @@ Ejemplo en `examples/tac/funciones.cps`. Pruebas:
 mvn -Dtest=FuncionesTACTest test
 mvn test
 ```
+
+## Registros de activación y recursión (bloque 5)
+
+Cada función dispone de un `RegistroActivacion` inmutable, consultable mediante
+`generador.registrosActivacion().get(nombre)`. Sus posiciones incluyen operando
+TAC, nombre fuente, tipo, categoría y offset. Los offsets son **slots lógicos**:
+cada posición ocupa un slot de valor/referencia, sin tamaños en bytes ni alineación
+de una CPU. El backend futuro podrá convertirlos a direcciones concretas.
+
+| Offset | Contenido |
+|---|---|
+| 0 | Enlace dinámico al marco del llamador |
+| 1 | Dirección de retorno (índice de la siguiente instrucción) |
+| 2 | Valor de retorno |
+| 3 en adelante | Parámetros, locales y temporales |
+
+Los parámetros se asignan primero, en orden de declaración. Locales y temporales
+se agregan en orden de generación; un temporal reciclado conserva el mismo slot
+dentro de esa función. Cada función posee su propio layout aunque utilice un
+nombre temporal que también exista en otra. Los tipos anotados se conservan;
+con la API del bloque 6 los locales inferidos reciben su tipo semántico y los
+temporales reciben el tipo de sus expresiones. Si un slot reciclado cambia de tipo,
+su layout usa `dynamic`. Sin información semántica, el visitor mantiene `unknown`.
+
+Los operandos de parámetros y locales usan `%funcion.numero.nombre`, por ejemplo
+`%sumar.0.a`, `%sumar.1.b`. El número identifica declaraciones distintas, también
+cuando el nombre fuente se repite en bloques. Bloques, `for` y `switch` tienen
+contextos de nombres que se restauran al salir; el inicializador se evalúa antes
+de declarar la variable nueva, igual que en la semántica existente.
+
+Los globals de raíz conservan su nombre fuente y se resuelven fuera del marco.
+La API del bloque 6 enlaza nodos y declaraciones con sus referencias semánticas;
+variables de bloques del programa principal usan `%global.numero.nombre`.
+Las variables locales de funciones también están diferenciadas por declaración.
+
+Antes de generar un programa, el visitor reserva todos sus identificadores para
+que variables como `t0` no colisionen con temporales. El visitor de expresiones
+usado aislado conserva su contrato anterior y no realiza ese preescaneo.
+
+`PilaActivaciones.entrar(layout, argumentos, regreso, destino)` crea una nueva
+`RegistroActivacion.Instancia` con slots propios y parámetros inicializados.
+`salir(valor)` guarda el retorno, retira el marco y escribe el destino en el
+llamador si existe. Devuelve dirección, destino y valor para que el intérprete
+restaure su contador; si el llamador es el programa principal, el consumidor
+escribe el resultado en su memoria global. No se requiere enlace estático porque
+las funciones anidadas y cierres no están soportados.
+
+Este modelo es reutilizable por un backend/intérprete, pero no ejecuta TAC por
+sí mismo ni se conecta al IDE. Las pruebas de funciones ejecutan las instrucciones
+utilizando estos marcos reales y comprueban factorial, recursión con locales,
+conservación del llamador, sombras y globals compartidas. También se validan
+layouts, offsets, argumentos y retornos fuera de contexto.
+
+```bash
+mvn -Dtest=FuncionesTACTest,RegistroActivacionTest test
+```
+
+Estado del bloque 5: suite completa de 216 pruebas, sin fallos.
+
+## Entrega para el bloque 6
+
+1. Crear un resultado de compilación que exponga errores, TAC, firmas y layouts.
+2. Bloquear generación ante errores léxicos, sintácticos o semánticos.
+3. Asociar nodos/declaraciones con símbolos y completar los tipos `unknown`.
+4. Integrar `Posicion.operando()`/`offset()` con los metadatos de `Simbolo`/`Ambito`
+   junto con Persona 3; no buscar símbolos solo por nombre cuando hay sombras.
+5. Definir identidad de variables del programa principal dentro de bloques.
+6. Exponer datos al IDE y completar pruebas integradas y documentación de arquitectura.
+7. Acordar longitud/acceso de arreglos para `foreach` y extensiones para clases/métodos.
+
+El diagrama del árbol permanece como último bloque de Persona 2.

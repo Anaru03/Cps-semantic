@@ -169,3 +169,7 @@ pruebas combinadas siguen siendo trabajo compartido.
 ## Bloque 4
 Funciones, argumentos, llamadas y retornos implementados; 207 pruebas pasan.
 Registros de activación e integración semántica quedan para bloques 5 y 6.
+
+## Bloque 5
+Layouts, marcos independientes y recursión implementados; 216 pruebas pasan.
+La vinculación con símbolos y API pública quedan para el bloque 6.

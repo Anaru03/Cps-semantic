@@ -17,6 +17,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
     private DescriptorFuncion funcionActual;
 
     @Override public Void visitProgram(CompiscriptParser.ProgramContext ctx) {
+        reservarIdentificadores(ctx);
         for (var sentencia : ctx.statement()) {
             var funcion = sentencia.functionDeclaration();
             if (funcion != null) {
@@ -30,6 +31,13 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         }
         for (var sentencia : ctx.statement()) visit(sentencia);
         return null;
+    }
+
+    private void reservarIdentificadores(org.antlr.v4.runtime.tree.ParseTree nodo) {
+        if (nodo instanceof org.antlr.v4.runtime.tree.TerminalNode terminal
+                && terminal.getSymbol().getType() == CompiscriptParser.Identifier)
+            generador.temporales().reservarNombre(terminal.getText());
+        for (int i = 0; i < nodo.getChildCount(); i++) reservarIdentificadores(nodo.getChild(i));
     }
 
     public GeneradorSentenciasTAC() { this(new GeneradorTAC()); }
@@ -74,16 +82,24 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         String despues = generador.nuevaEtiqueta();
         generador.generarSalto(despues);
         generador.emitir(InstruccionTAC.funcion(funcion.nombre()));
+        generador.iniciarFuncion(funcion.nombre());
         for (int i = 0; i < funcion.parametros().size(); i++)
             generador.emitir(InstruccionTAC.parametro(
-                    funcion.parametros().get(i).nombre(), i));
+                    generador.resolverNombre(funcion.parametros().get(i).nombre()), i));
         funcionActual = funcion;
-        try { visit(ctx.block()); }
-        finally { funcionActual = null; }
+        try { for (var sentencia : ctx.block().statement()) visit(sentencia); }
+        finally { funcionActual = null; generador.finalizarFuncion(); }
         // Retorno implícito únicamente para funciones sin valor.
         if (!funcion.devuelveValor()) generador.emitir(InstruccionTAC.retorno(null));
         generador.emitir(InstruccionTAC.finFuncion(funcion.nombre()));
         generador.emitirEtiqueta(despues);
+        return null;
+    }
+
+    @Override public Void visitBlock(CompiscriptParser.BlockContext ctx) {
+        generador.entrarAmbito();
+        try { for (var sentencia : ctx.statement()) visit(sentencia); }
+        finally { generador.salirAmbito(); }
         return null;
     }
 
@@ -151,6 +167,8 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
     }
 
     @Override public Void visitForStatement(CompiscriptParser.ForStatementContext ctx) {
+        generador.entrarAmbito();
+        try {
         if (ctx.variableDeclaration() != null) expresiones.visit(ctx.variableDeclaration());
         else if (ctx.assignment() != null) expresiones.visit(ctx.assignment());
         // Las dos expresiones son opcionales: su posición respecto al separador
@@ -182,6 +200,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         generador.generarSalto(condicion);
         generador.emitirEtiqueta(salida);
         return null;
+        } finally { generador.salirAmbito(); }
     }
 
     @Override public Void visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {
@@ -207,6 +226,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
             generador.generarSalto(defecto);
         } finally { generador.liberarTemporal(selector); }
         contextos.push(new ContextoControl(salida, null));
+        generador.entrarAmbito();
         try {
             for (int i = 0; i < ctx.switchCase().size(); i++) {
                 generador.emitirEtiqueta(destinos.get(i));
@@ -216,7 +236,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
                 generador.emitirEtiqueta(defecto);
                 for (var sentencia : ctx.defaultCase().statement()) visit(sentencia);
             }
-        } finally { contextos.pop(); }
+        } finally { contextos.pop(); generador.salirAmbito(); }
         generador.emitirEtiqueta(salida);
         return null;
     }

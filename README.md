@@ -306,7 +306,7 @@ El análisis también incluye:
 - Clases y objetos
 - Arreglos
 - Ámbitos
-- Tabla de símbolos
+- Tabla de símbolos con filtro, ordenamiento y ámbitos diferenciados
 - Control de flujo
 - Detección de código muerto
 - Recuperación y reporte de múltiples errores
@@ -362,7 +362,7 @@ Actualmente incluye visualización de:
 
 - Errores
 - Árbol sintáctico como diagrama con zoom, búsqueda y ramas plegables
-- Tabla de símbolos
+- Tabla de símbolos con filtro, ordenamiento y ámbitos diferenciados
 
 La integración de la representación intermedia TAC con la interfaz forma parte de la evolución del Proyecto 2.
 
@@ -424,7 +424,7 @@ mvn test
 Estado actual:
 
 ```text
-Tests run: 240
+Tests run: 242
 Failures: 0
 Errors: 0
 Skipped: 0

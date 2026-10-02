@@ -10,9 +10,7 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
 import semantic.AnalisisSemantico;
 import semantic.AnalizadorSemantico;
-import semantic.Ambito;
 import semantic.ResultadoSemantico;
-import semantic.Simbolo;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -24,17 +22,11 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
-import javax.swing.JTree;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.DefaultTreeCellRenderer;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -68,7 +60,7 @@ public final class CompiscriptIDE extends JFrame {
     private final JTextArea editor = new JTextArea();
     private final JTextArea salida = new JTextArea();
     private final DiagramaArbol arbolSintactico = new DiagramaArbol();
-    private final JTree tablaSimbolos = new JTree(new DefaultMutableTreeNode("(sin compilar)"));
+    private final TablaSimbolosPanel tablaSimbolos = new TablaSimbolosPanel();
     private final JLabel estado = new JLabel(" Listo");
 
     public CompiscriptIDE() {
@@ -121,9 +113,6 @@ public final class CompiscriptIDE extends JFrame {
         JScrollPane panelSalida = new JScrollPane(salida);
         estilizarScroll(panelSalida);
 
-        JScrollPane panelTabla = new JScrollPane(tablaSimbolos);
-        estilizarArbol(tablaSimbolos);
-        estilizarScroll(panelTabla);
 
         JTabbedPane pestanas = new JTabbedPane();
         pestanas.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
@@ -132,7 +121,7 @@ public final class CompiscriptIDE extends JFrame {
         pestanas.setBorder(BorderFactory.createLineBorder(BORDE));
         pestanas.addTab("Errores", panelSalida);
         pestanas.addTab("Árbol sintáctico", arbolSintactico);
-        pestanas.addTab("Tabla de símbolos", panelTabla);
+        pestanas.addTab("Tabla de símbolos", tablaSimbolos);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelEditor, pestanas);
         split.setResizeWeight(0.56);
@@ -198,21 +187,6 @@ public final class CompiscriptIDE extends JFrame {
         scroll.getViewport().setBackground(PANEL);
     }
 
-    private void estilizarArbol(JTree arbol) {
-        arbol.setBackground(PANEL);
-        arbol.setForeground(TEXTO);
-        arbol.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
-        arbol.setRowHeight(24);
-        arbol.setShowsRootHandles(true);
-        DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-        renderer.setBackgroundNonSelectionColor(PANEL);
-        renderer.setBackgroundSelectionColor(AZUL);
-        renderer.setTextNonSelectionColor(TEXTO);
-        renderer.setTextSelectionColor(Color.WHITE);
-        renderer.setBorderSelectionColor(AZUL);
-        arbol.setCellRenderer(renderer);
-    }
-
     private void compilar(ActionEvent evento) {
         String codigo = editor.getText();
         try {
@@ -238,15 +212,13 @@ public final class CompiscriptIDE extends JFrame {
                 salida.setText(String.join("\n", erroresAnalisis));
                 estado.setForeground(ROJO);
                 estado.setText("● Error de análisis (" + erroresAnalisis.size() + ")");
-                tablaSimbolos.setModel(new DefaultTreeModel(new DefaultMutableTreeNode(
-                        "(no disponible: hay errores lexicos o sintacticos)")));
+                tablaSimbolos.limpiar("No disponible: hay errores léxicos o sintácticos");
                 return;
             }
 
-            AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
+            AnalisisSemantico analisis = AnalizadorSemantico.analizar((CompiscriptParser.ProgramContext) arbol);
             ResultadoSemantico resultado = analisis.resultado();
-            tablaSimbolos.setModel(new DefaultTreeModel(nodoDelAmbito(analisis.ambitoGlobal())));
-            expandirHasta(tablaSimbolos, 3);
+            tablaSimbolos.mostrar(analisis);
 
             if (resultado.esValido()) {
                 salida.setForeground(VERDE);
@@ -280,38 +252,6 @@ public final class CompiscriptIDE extends JFrame {
                 receptor.accept("Lexico " + linea + ":" + columna + " - " + mensaje);
             }
         });
-    }
-
-    /** Construye la representacion visual (JTree) de la tabla de simbolos, ambito por ambito. */
-    private DefaultMutableTreeNode nodoDelAmbito(Ambito ambito) {
-        DefaultMutableTreeNode raiz = new DefaultMutableTreeNode(ambito.nombre());
-        for (Simbolo simbolo : ambito.simbolos()) {
-            DefaultMutableTreeNode nodoSimbolo = new DefaultMutableTreeNode(
-                    simbolo.categoria() + " " + simbolo.nombre() + " : " + simbolo.tipo());
-            if (simbolo.miembros() != null) nodoSimbolo.add(nodoDelAmbito(simbolo.miembros()));
-            raiz.add(nodoSimbolo);
-        }
-        return raiz;
-    }
-
-    /**
-     * Expande solo unos niveles. Expandir el arbol completo puede contener miles de
-     * nodos y provocar recursion en la capa de accesibilidad nativa de Swing en macOS.
-     */
-    private void expandirHasta(JTree arbol, int profundidadMaxima) {
-        Object raiz = arbol.getModel().getRoot();
-        if (raiz instanceof TreeNode nodo) {
-            expandirHasta(arbol, new TreePath(nodo), 0, profundidadMaxima);
-        }
-    }
-
-    private void expandirHasta(JTree arbol, TreePath ruta, int profundidad, int maxima) {
-        arbol.expandPath(ruta);
-        if (profundidad >= maxima) return;
-        TreeNode nodo = (TreeNode) ruta.getLastPathComponent();
-        for (int i = 0; i < nodo.getChildCount(); i++) {
-            expandirHasta(arbol, ruta.pathByAddingChild(nodo.getChildAt(i)), profundidad + 1, maxima);
-        }
     }
 
     private static final String EJEMPLO = """

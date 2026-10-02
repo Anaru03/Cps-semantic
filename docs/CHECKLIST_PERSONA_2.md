@@ -197,3 +197,10 @@ Vista de nodos y conexiones con zoom, scroll, arrastre, búsqueda y plegado.
 Modelo completo, conversión en segundo plano y layout sin recursión. Tests con
 15 000 niveles y 3 000 declaraciones; suite: 240 pruebas pasando.
 Documentación de uso y límites: `docs/DIAGRAMA_ARBOL.md`.
+
+## Vista tabular de símbolos
+
+La pestaña muestra nombre, tipo, categoría, ámbito y parámetros en filas
+no editables, con filtro, ordenamiento y scroll horizontal/vertical. Incluye
+locales y parámetros recuperados de la información semántica del mismo árbol.
+Variables homónimas conservan ámbitos diferenciados. Suite: 242 pruebas pasan.

@@ -16,6 +16,15 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
     private final Deque<ContextoControl> contextos = new ArrayDeque<>();
     private DescriptorFuncion funcionActual;
 
+    @Override public Void visit(org.antlr.v4.runtime.tree.ParseTree nodo) {
+        try { return super.visit(nodo); }
+        catch (UnsupportedOperationException | IllegalArgumentException | IllegalStateException | NullPointerException error) {
+            if (!generador.informacion().tipos().isEmpty() && nodo instanceof org.antlr.v4.runtime.ParserRuleContext ctx)
+                throw new ErrorGeneracionTAC(ctx, error);
+            throw error;
+        }
+    }
+
     @Override public Void visitProgram(CompiscriptParser.ProgramContext ctx) {
         reservarIdentificadores(ctx);
         for (var sentencia : ctx.statement()) {
@@ -24,7 +33,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
                 var parametros = new java.util.ArrayList<DescriptorFuncion.Parametro>();
                 if (funcion.parameters() != null) for (var parametro : funcion.parameters().parameter())
                     parametros.add(new DescriptorFuncion.Parametro(parametro.Identifier().getText(),
-                            parametro.type() == null ? "unknown" : parametro.type().getText()));
+                            generador.tipoDeclarado(parametro, parametro.type() == null ? "unknown" : parametro.type().getText())));
                 generador.registrarFuncion(new DescriptorFuncion(funcion.Identifier().getText(), parametros,
                         funcion.type() == null ? "void" : funcion.type().getText()));
             }
@@ -62,7 +71,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         if (ctx.breakStatement() != null) return visit(ctx.breakStatement());
         if (ctx.continueStatement() != null) return visit(ctx.continueStatement());
         if (ctx.block() != null) return visit(ctx.block());
-        if (ctx.variableDeclaration() != null || ctx.assignment() != null
+        if (ctx.variableDeclaration() != null || ctx.constantDeclaration() != null || ctx.assignment() != null
                 || ctx.expressionStatement() != null) {
             String valor = ctx.expressionStatement() == null ? expresiones.visit(ctx.getChild(0))
                     : expresiones.visit(ctx.expressionStatement().expression());
@@ -83,6 +92,8 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         generador.generarSalto(despues);
         generador.emitir(InstruccionTAC.funcion(funcion.nombre()));
         generador.iniciarFuncion(funcion.nombre());
+        if (ctx.parameters() != null) for (var parametro : ctx.parameters().parameter())
+            generador.vincular(parametro, generador.resolverNombre(parametro.Identifier().getText()));
         for (int i = 0; i < funcion.parametros().size(); i++)
             generador.emitir(InstruccionTAC.parametro(
                     generador.resolverNombre(funcion.parametros().get(i).nombre()), i));
@@ -213,12 +224,15 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         // Congelar el selector: un case puede modificar la variable original.
         String selector = generador.temporales().nuevoTemporal();
         generador.generarAsignacion(selector, valor);
+        var tipoSelector = generador.informacion().tipos().get(ctx.expression());
+        if (tipoSelector != null) generador.tiparTemporal(selector, tipoSelector.toString());
         generador.liberarTemporal(valor);
         try {
             for (int i = 0; i < ctx.switchCase().size(); i++) {
                 String caso = Objects.requireNonNull(expresiones.visit(ctx.switchCase(i).expression()),
                         "Expresión case TAC no soportada");
                 String comparacion = generador.generarOperacion("==", selector, caso);
+                generador.tiparTemporal(comparacion, "boolean");
                 generador.generarSaltoCondicional(comparacion, destinos.get(i));
                 generador.liberarTemporal(comparacion);
                 generador.liberarTemporal(caso);

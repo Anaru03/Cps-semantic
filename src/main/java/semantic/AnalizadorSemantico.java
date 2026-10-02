@@ -20,13 +20,28 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     private Simbolo claseActual;
     private boolean enBucle = false;
     private int profundidadSwitch;
+    private final java.util.Map<ParserRuleContext, TipoDato> tipos = new java.util.IdentityHashMap<>();
+    private final java.util.Map<ParserRuleContext, Ambito> ambitos = new java.util.IdentityHashMap<>();
+    private final java.util.Map<ParserRuleContext, InformacionSemantica.Referencia> referencias = new java.util.IdentityHashMap<>();
+
+    @Override public TipoDato visit(org.antlr.v4.runtime.tree.ParseTree nodo) {
+        if (nodo instanceof ParserRuleContext ctx) ambitos.put(ctx, actual);
+        TipoDato tipo = super.visit(nodo);
+        if (nodo instanceof ParserRuleContext ctx && tipo != null) tipos.put(ctx, tipo);
+        return tipo;
+    }
 
     public static AnalisisSemantico analizar(String fuente) {
         CompiscriptParser parser = new CompiscriptParser(new CommonTokenStream(
                 new CompiscriptLexer(CharStreams.fromString(fuente))));
+        return analizar(parser.program());
+    }
+
+    public static AnalisisSemantico analizar(CompiscriptParser.ProgramContext arbol) {
         AnalizadorSemantico analizador = new AnalizadorSemantico();
-        analizador.visit(parser.program());
-        return new AnalisisSemantico(new ResultadoSemantico(analizador.errores), analizador.global);
+        analizador.visit(arbol);
+        return new AnalisisSemantico(new ResultadoSemantico(analizador.errores), analizador.global,
+                new InformacionSemantica(analizador.tipos, analizador.ambitos, analizador.referencias));
     }
 
     private void error(ParserRuleContext ctx, String mensaje) {
@@ -42,7 +57,9 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         return (a.base() == Tipo.FLOAT || b.base() == Tipo.FLOAT) ? TipoDato.FLOAT : TipoDato.INTEGER;
     }
     private void declarar(ParserRuleContext ctx, Simbolo simbolo) {
+        ambitos.put(ctx, actual);
         if (!actual.declarar(simbolo)) error(ctx, "El identificador '" + simbolo.nombre() + "' ya fue declarado en este ambito");
+        else referencias.put(ctx, new InformacionSemantica.Referencia(actual, simbolo.nombre()));
     }
     private TipoDato tipo(CompiscriptParser.TypeContext ctx) {
         if (ctx == null) return TipoDato.UNKNOWN;
@@ -60,10 +77,12 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
 
     @Override public TipoDato visitBlock(CompiscriptParser.BlockContext ctx) {
         Ambito anterior = actual; actual = new Ambito("bloque", anterior);
+        ambitos.put(ctx, actual);
         visitarSentencias(ctx.statement());
         actual = anterior; return TipoDato.VOID;
     }
     private void visitarBloqueSinNuevoAmbito(CompiscriptParser.BlockContext ctx) {
+        ambitos.put(ctx, actual); tipos.put(ctx, TipoDato.VOID);
         visitarSentencias(ctx.statement());
     }
     /** Visita una lista de sentencias y marca como codigo muerto todo lo que venga
@@ -116,6 +135,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         Optional<Simbolo> encontrado = actual.buscar(nombre);
         if (encontrado.isEmpty()) { error(ctx, "El identificador '" + nombre + "' no esta declarado"); return TipoDato.ERROR; }
         Simbolo simbolo = encontrado.get();
+        referencias.put(ctx, new InformacionSemantica.Referencia(simbolo.ambito(), simbolo.nombre()));
         if (simbolo.categoria() == CategoriaSimbolo.CONSTANTE) error(ctx, "No se puede reasignar la constante '" + nombre + "'");
         else if (!simbolo.tipo().compatibleCon(valor)) error(ctx, "No se puede asignar " + valor + " a " + simbolo.tipo());
         return simbolo.tipo();
@@ -371,7 +391,10 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     }
 
     @Override public TipoDato visitIdentifierExpr(CompiscriptParser.IdentifierExprContext ctx) {
-        return actual.buscar(ctx.Identifier().getText()).map(Simbolo::tipo).orElseGet(() -> {
+        return actual.buscar(ctx.Identifier().getText()).map(simbolo -> {
+            referencias.put(ctx, new InformacionSemantica.Referencia(simbolo.ambito(), simbolo.nombre()));
+            return simbolo.tipo();
+        }).orElseGet(() -> {
             error(ctx, "El identificador '" + ctx.Identifier().getText() + "' no esta declarado"); return TipoDato.ERROR;
         });
     }
@@ -450,7 +473,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitChildren(org.antlr.v4.runtime.tree.RuleNode node) {
         TipoDato r = TipoDato.UNKNOWN;
         for (int i=0;i<node.getChildCount();i++) if (node.getChild(i) instanceof org.antlr.v4.runtime.tree.RuleNode n) {
-            TipoDato x=n.accept(this); if (x!=null && x!=TipoDato.UNKNOWN) r=x;
+            TipoDato x=visit(n); if (x!=null && x!=TipoDato.UNKNOWN) r=x;
         }
         return r;
     }

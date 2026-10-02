@@ -31,6 +31,9 @@ class FuncionesTACTest {
         Maquina(GeneradorSentenciasTAC visitor) {
             this(visitor.generador().instrucciones(), visitor.generador().registrosActivacion());
         }
+        Maquina(compiler.ResultadoCompilacion resultado) {
+            this(resultado.instrucciones(), resultado.registros());
+        }
         private Maquina(List<InstruccionTAC> instrucciones, Map<String, RegistroActivacion> layouts) {
             codigo = instrucciones;
             registros = layouts;
@@ -77,6 +80,7 @@ class FuncionesTACTest {
                         int r = switch (ins.operador()) {
                             case "" -> a; case "+" -> a + b; case "-" -> a - b;
                             case "*" -> a * b; case "<=" -> a <= b ? 1 : 0;
+                            case "<" -> a < b ? 1 : 0; case "==" -> a == b ? 1 : 0;
                             default -> throw new AssertionError(ins.operador());
                         };
                         memoria.put(ins.resultado(), r);

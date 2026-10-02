@@ -92,7 +92,7 @@ t1 = t0 * c
 
 ## Instrucciones TAC
 
-Actualmente la representación intermedia soporta operaciones binarias, operaciones unarias y asignaciones.
+La representación intermedia soporta operaciones, asignaciones, etiquetas, saltos, condicionales, ciclos, switch, funciones, argumentos y retornos. Las convenciones y límites están en `docs/TAC.md`.
 
 ### Operaciones binarias
 
@@ -424,7 +424,7 @@ mvn test
 Estado actual:
 
 ```text
-Tests run: 171
+Tests run: 227
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -492,6 +492,7 @@ La documentación técnica se encuentra en:
 
 - [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — arquitectura del analizador.
 - [`docs/TAC.md`](docs/TAC.md) — diseño de la representación intermedia TAC.
+- [`docs/INTEGRACION_PERSONA_3.md`](docs/INTEGRACION_PERSONA_3.md) — API, referencias de símbolos y entrega para integrar estructuras e IDE.
 
 ---
 
@@ -524,7 +525,9 @@ En desarrollo.
 
 Actualmente se encuentra implementada la infraestructura base de TAC y la generación de código intermedio para expresiones, declaraciones y asignaciones, incluyendo administración y reciclaje de variables temporales.
 
-Las siguientes etapas amplían esta infraestructura con control de flujo, funciones, estructuras, información adicional de símbolos e integración completa con el IDE.
+También se implementaron control de flujo, funciones y registros de activación con recursión, junto con la API `compiler.Compilador.compilar(codigo)`. La API devuelve errores, TAC, firmas, layouts y enlaces a símbolos.
+
+Quedan pendientes arreglos/clases, `foreach`, construcciones señaladas en `docs/TAC.md` y la visualización TAC del IDE. El contrato de integración se encuentra en `docs/INTEGRACION_PERSONA_3.md`.
 
 ---
 

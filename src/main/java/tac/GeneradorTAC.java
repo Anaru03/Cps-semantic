@@ -15,6 +15,54 @@ public final class GeneradorTAC {
     private final java.util.List<RegistroActivacion.Posicion> posiciones = new java.util.ArrayList<>();
     private String funcionActiva;
     private int siguienteLocal;
+    private int siguienteGlobal;
+    private semantic.InformacionSemantica informacion = semantic.InformacionSemantica.vacia();
+    private final java.util.Map<semantic.InformacionSemantica.Referencia, EnlaceSimboloTAC> enlaces = new java.util.LinkedHashMap<>();
+
+    public void usarInformacion(semantic.InformacionSemantica informacion) { this.informacion = informacion; }
+    public semantic.InformacionSemantica informacion() { return informacion; }
+    public java.util.List<EnlaceSimboloTAC> enlacesSimbolos() { return java.util.List.copyOf(enlaces.values()); }
+    public String tipoDeclarado(org.antlr.v4.runtime.ParserRuleContext ctx, String respaldo) {
+        var referencia = informacion.referencias().get(ctx);
+        return referencia == null ? respaldo : referencia.simbolo().tipo().toString();
+    }
+    public void vincular(org.antlr.v4.runtime.ParserRuleContext ctx, String operando) {
+        var referencia = informacion.referencias().get(ctx);
+        if (referencia != null) {
+            Integer offset = funcionActiva == null ? null : posiciones.stream()
+                    .filter(p -> p.operando().equals(operando)).findFirst().orElseThrow().offset();
+            enlaces.put(referencia, new EnlaceSimboloTAC(referencia, operando, funcionActiva, offset));
+        }
+    }
+    public String declarar(org.antlr.v4.runtime.ParserRuleContext ctx, String nombre, String tipo) {
+        String operando;
+        var referencia = informacion.referencias().get(ctx);
+        if (funcionActiva == null && referencia != null && referencia.ambito().padre() != null)
+            operando = "%global." + siguienteGlobal++ + "." + nombre;
+        else operando = declararLocal(nombre, tipoDeclarado(ctx, tipo), RegistroActivacion.Clase.LOCAL);
+        vincular(ctx, operando);
+        return operando;
+    }
+    public String resolverNombre(org.antlr.v4.runtime.ParserRuleContext ctx, String respaldo) {
+        var referencia = informacion.referencias().get(ctx);
+        if (referencia != null) {
+            var enlace = enlaces.get(referencia);
+            if (enlace == null) throw new IllegalStateException("Símbolo sin almacenamiento: " + referencia.nombre());
+            return enlace.operando();
+        }
+        return resolverNombre(respaldo);
+    }
+    public void tiparTemporal(String operando, String tipo) {
+        if (funcionActiva == null || operando == null || !temporales.estaEnUso(operando)) return;
+        for (int i = 0; i < posiciones.size(); i++) {
+            var p = posiciones.get(i);
+            if (p.operando().equals(operando) && p.clase() == RegistroActivacion.Clase.TEMPORAL) {
+                String nuevo = p.tipo().equals("unknown") || p.tipo().equals(tipo) ? tipo : "dynamic";
+                posiciones.set(i, new RegistroActivacion.Posicion(p.operando(), p.nombre(), nuevo, p.clase(), p.offset()));
+            }
+        }
+    }
+
     public java.util.Map<String, RegistroActivacion> registrosActivacion() {
         return java.util.Collections.unmodifiableMap(registros);
     }
@@ -176,5 +224,6 @@ public final class GeneradorTAC {
         etiquetas.reiniciar();
         funciones.clear();
         registros.clear(); posiciones.clear(); ambitos.clear(); funcionActiva = null;
+        enlaces.clear(); siguienteGlobal = 0; informacion = semantic.InformacionSemantica.vacia();
     }
 }

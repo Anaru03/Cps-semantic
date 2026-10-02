@@ -31,18 +31,18 @@ Implementado y cubierto por pruebas:
 
 Pendientes observados por inspección del código:
 
-- [ ] Conectar TAC con tipos y símbolos: `GeneradorExpresionesTAC` no recibe
-  `AnalisisSemantico` ni consulta `Ambito`/`Simbolo`; los tests usan incluso nombres sin declarar.
-- [ ] Agregar pruebas negativas de generación y rechazar construcciones no soportadas
-  explícitamente; actualmente pueden propagarse operandos `null`.
+- [x] Conectar TAC con tipos y referencias de símbolos a través de `Compilador.compilar`
+  y `AnalisisSemantico.informacion()`. Los visitors aislados mantienen compatibilidad.
+- [x] Agregar pruebas negativas y diagnósticos para construcciones pendientes;
+  la API no publica TAC parcial ante fallos.
 - [x] Crear `docs/TAC.md`: agregado durante el primer bloque de Persona 2. El commit
   `60f8279`, llamado documentación TAC, agregó pruebas de asignaciones.
-- [ ] Evitar colisiones entre temporales `t0`, `t1`, etc. e identificadores legales
-  con esos mismos nombres. La liberación identifica temporales por una expresión regular.
+- [x] Evitar colisiones entre temporales `t0`, `t1`, etc. e identificadores legales
+  al generar programas completos: el visitor reserva los nombres antes de emitir TAC.
 - [x] Liberar el resultado intermedio de `visitAssignExpr` después de copiarlo al destino.
-- [ ] Revisar liberación de expresiones usadas como sentencias independientes.
-- [ ] Cubrir constantes y ternario: no tienen traducción explícita. El recorrido
-  genérico del ternario no representa la selección entre sus dos ramas.
+- [x] Liberar resultados de expresiones usadas como sentencias independientes.
+- [x] Traducir constantes escalares y validar sus asignaciones.
+- [ ] Implementar ternario: por ahora se rechaza explícitamente mediante diagnóstico TAC.
 - [ ] Acordar si `&&` y `||` requieren cortocircuito: hoy se emiten como operaciones
   binarias con evaluación de ambos operandos.
 
@@ -58,13 +58,12 @@ antes de considerar completo el compilador. Las pruebas actuales no verifican es
 - [x] Extender `InstruccionTAC` para etiquetas y saltos con formato propio.
 - [x] Compartir un único `GeneradorTAC` y administrador de temporales entre visitors
   mediante constructor y composición.
-- [ ] Crear una API de compilación reutilizable por tests e IDE que reporte errores,
+- [x] Crear una API de compilación reutilizable por tests e IDE que reporte errores,
   instrucciones, texto TAC y metadatos de funciones.
-- [ ] Bloquear generación si hay errores léxicos, sintácticos o semánticos.
-- [ ] Definir manejo explícito de construcciones aún no implementadas, incluido
+- [x] Bloquear generación si hay errores léxicos, sintácticos o semánticos.
+- [x] Definir manejo explícito de construcciones aún no implementadas, incluido
   `try/catch`, presente en la gramática pero fuera del reparto principal.
-- [ ] Acordar con Persona 3 cómo identificar cada símbolo y ámbito del árbol;
-  `AnalisisSemantico` devuelve el ámbito global, pero no un mapa nodo → ámbito/tipo.
+- [x] Preparar mapas nodo → ámbito/tipo/referencia y documentar su consumo para Persona 3.
 
 ### 2. Etiquetas y condicionales
 
@@ -107,31 +106,42 @@ El siguiente bloque es funciones, argumentos, llamadas y retornos.
 
 ### 5. Funciones, llamadas y retornos
 
-- [ ] Delimitar funciones para que sus cuerpos no se ejecuten como código principal.
-- [ ] Registrar identidad, entrada, firma, parámetros y tipo de retorno.
-- [ ] Traducir sufijos de llamadas en `leftHandSide`; `CallExpr` contiene argumentos,
+- [x] Delimitar funciones para que sus cuerpos no se ejecuten como código principal.
+- [x] Registrar nombre/entrada, firma, parámetros y tipo de retorno para funciones globales.
+- [x] Traducir llamadas directas en `leftHandSide`; `CallExpr` contiene argumentos,
   mientras que el receptor está en el nodo padre. Dejar extensión para métodos de Persona 3.
-- [ ] Definir orden de evaluación/paso de argumentos y conservar valores frente a
+- [x] Definir orden de evaluación/paso de argumentos y conservar valores frente a
   llamadas anidadas o argumentos con efectos secundarios.
-- [ ] Emitir llamada con resultado y llamada sin valor; retorno con y sin expresión.
-- [ ] Implementar salida de función y coordinación con el registro de activación.
-- [ ] Probar múltiples parámetros, llamadas anidadas, llamadas como expresión,
+- [x] Emitir llamada con resultado y llamada sin valor; retorno con y sin expresión.
+- [x] Implementar salida de función y coordinación con el registro de activación.
+- [x] Probar múltiples parámetros, llamadas anidadas, llamadas como expresión,
   múltiples retornos, recursión directa y preservación de valores del llamador.
-- [ ] Definir soporte o rechazo de funciones anidadas y referencias adelantadas;
+- [x] Definir soporte o rechazo de funciones anidadas y referencias adelantadas;
   no asumir que la semántica existente acepta recursión mutua.
+
+Bloque 4 implementado con convención de llamadas y descriptores; la prueba de
+recursión usa la pila y marcos del bloque 5 en un intérprete limitado de tests.
+La asociación de posiciones con símbolos y la integración del pipeline quedan
+para el bloque 6. El chequeo de retorno es conservador y está documentado en `TAC.md`.
 
 ### 6. Registros de activación y ámbitos runtime
 
-- [ ] Modelo de registro por invocación: parámetros, locales, temporales,
+- [x] Modelo de registro por invocación: parámetros, locales, temporales,
   retorno, enlace al llamador y dirección de regreso según la convención elegida.
-- [ ] Definir posiciones, unidades de offsets, tamaños/alineación si aplican y
+- [x] Definir posiciones, unidades de offsets, tamaños/alineación si aplican y
   quién calcula cada dato. Una posición lógica es válida si se documenta.
-- [ ] Asegurar almacenamiento independiente en llamadas recursivas; no modelar
+- [x] Asegurar almacenamiento independiente en llamadas recursivas; no modelar
   los locales y temporales de todas las invocaciones como variables globales.
-- [ ] Distinguir símbolos con el mismo nombre en ámbitos diferentes.
-- [ ] Entregar a Persona 3 el descriptor de cada función y una interfaz para enlazar
+- [x] Distinguir parámetros y locales homónimos de funciones/bloques mediante operandos únicos.
+- [x] Completar identidad de símbolos de bloques del programa principal y enlace semántico (bloque 6).
+- [x] Preparar descriptor de cada función y una interfaz documentada para enlazar
   símbolos con sus posiciones; Persona 3 integra esos metadatos en `Simbolo`/`Ambito`.
-- [ ] Probar layouts, parámetros/locales homónimos en distintos ámbitos y recursión.
+- [x] Probar layouts, parámetros/locales homónimos en distintos ámbitos y recursión.
+
+Bloque 5 verificado con 216 pruebas pasando. `GeneradorTAC.registrosActivacion()`
+expone los layouts; `PilaActivaciones` crea marcos independientes y coordina
+retornos. El intérprete de pruebas usa esas clases, incluidos accesos a globals.
+El contrato y la lista de integración para el bloque 6 están en `docs/TAC.md`.
 
 ### 7. Pruebas, documentación y entrega
 
@@ -166,10 +176,11 @@ Persona 3 conserva la responsabilidad de extender símbolos, generar TAC de arre
 y clases e integrar la visualización del TAC en Swing. La integración final y las
 pruebas combinadas siguen siendo trabajo compartido.
 
-## Bloque 4
-Funciones, argumentos, llamadas y retornos implementados; 207 pruebas pasan.
-Registros de activación e integración semántica quedan para bloques 5 y 6.
+## Cierre del bloque 6
 
-## Bloque 5
-Layouts, marcos independientes y recursión implementados; 216 pruebas pasan.
-La vinculación con símbolos y API pública quedan para el bloque 6.
+API `compiler.Compilador.compilar` implementada con snapshots de resultados y
+fallos por etapa. Ejemplos compilados desde archivos y pruebas integradas de
+funciones, ciclos, switch, recursión, tipos inferidos y símbolos homónimos.
+Contrato para Persona 3: `docs/INTEGRACION_PERSONA_3.md`. La visualización TAC
+y las estructuras siguen a su cargo; `foreach` requiere el acuerdo de arreglos.
+Suite completa: 227 pruebas pasando. Bloques 4–6 implementados y verificados.

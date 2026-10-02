@@ -300,3 +300,19 @@ Estado del bloque 5: suite completa de 216 pruebas, sin fallos.
 7. Acordar longitud/acceso de arreglos para `foreach` y extensiones para clases/métodos.
 
 El diagrama del árbol permanece como último bloque de Persona 2.
+
+## API de compilación (bloque 6)
+
+`compiler.Compilador.compilar(codigo)` devuelve un `ResultadoCompilacion` con
+árbol, análisis, diagnósticos por etapa, instrucciones, firmas, layouts y enlaces
+de símbolos. Solo publica TAC cuando todas las etapas pasan. Las construcciones
+pendientes generan diagnósticos de soporte; no se devuelve TAC parcial.
+
+Los operandos izquierdos se preservan cuando evaluar el derecho puede modificar
+variables mediante llamadas o asignaciones. Los argumentos también se congelan
+en orden de evaluación. La traducción de constantes escalares se integra con su
+validación semántica. `&&` y `||` conservan la convención binaria de la base.
+
+El contrato detallado, los puntos de extensión y la CLI de demostración están en
+`INTEGRACION_PERSONA_3.md`. La API está lista para consumo del IDE por Persona 3;
+la vista TAC y las estructuras de arreglos/clases siguen pendientes.

@@ -8,6 +8,7 @@ public final class GeneradorTAC {
 
     private final List<InstruccionTAC> instrucciones;
     private final AdministradorTemporales temporales;
+    private final AdministradorEtiquetas etiquetas = new AdministradorEtiquetas();
 
     public GeneradorTAC() {
         instrucciones = new ArrayList<>();
@@ -69,6 +70,20 @@ public final class GeneradorTAC {
         temporales.liberar(temporal);
     }
 
+    public String nuevaEtiqueta() { return etiquetas.nuevaEtiqueta(); }
+
+    public void emitirEtiqueta(String etiqueta) {
+        instrucciones.add(InstruccionTAC.etiqueta(etiqueta));
+    }
+
+    public void generarSalto(String destino) {
+        instrucciones.add(InstruccionTAC.salto(destino));
+    }
+
+    public void generarSaltoCondicional(String condicion, String destino) {
+        instrucciones.add(InstruccionTAC.saltoCondicional(condicion, destino));
+    }
+
     public List<InstruccionTAC> instrucciones() {
         return Collections.unmodifiableList(instrucciones);
     }
@@ -91,5 +106,6 @@ public final class GeneradorTAC {
     public void limpiar() {
         instrucciones.clear();
         temporales.reiniciar();
+        etiquetas.reiniciar();
     }
 }

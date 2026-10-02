@@ -9,7 +9,11 @@ public final class GeneradorExpresionesTAC
     private final GeneradorTAC generador;
 
     public GeneradorExpresionesTAC() {
-        generador = new GeneradorTAC();
+        this(new GeneradorTAC());
+    }
+
+    public GeneradorExpresionesTAC(GeneradorTAC generador) {
+        this.generador = java.util.Objects.requireNonNull(generador);
     }
 
     public GeneradorTAC generador() {

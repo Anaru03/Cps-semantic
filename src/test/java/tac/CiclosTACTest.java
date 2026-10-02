@@ -24,7 +24,7 @@ class CiclosTACTest {
 
     // Intérprete de prueba limitado al subconjunto usado aquí. Comprueba efectos
     // observables: un salto equivocado puede producir otro resultado o no terminar.
-    private Map<String, Integer> ejecutar(String fuente) {
+    Map<String, Integer> ejecutar(String fuente) {
         var visitor = traducir(fuente, true);
         var instrucciones = visitor.generador().instrucciones();
         var etiquetas = new HashMap<String, Integer>();

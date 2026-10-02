@@ -71,8 +71,8 @@ continúa disponible para compatibilidad.
 Este visitor todavía no es una API completa de compilación: no valida por sí
 mismo tipos ni errores del parser. Por ahora soporta variables, asignaciones
 y expresiones de la base existente, bloques, `if/else`, `while`, `do-while`,
-`for`, `break` y `continue`. Otras sentencias,
-incluidos `foreach`, `switch` y funciones, provocan `UnsupportedOperationException` para
+`for`, `switch/case/default`, `break` y `continue`. Otras sentencias,
+incluidos `foreach` y funciones, provocan `UnsupportedOperationException` para
 evitar traducir sus cuerpos como ejecución lineal. Las limitaciones de
 expresiones heredadas se detallan en `CHECKLIST_PERSONA_2.md`; en particular,
 ternario, llamadas y cortocircuito siguen pendientes.
@@ -121,3 +121,42 @@ Ejemplo combinado: `examples/tac/ciclos.cps`. Pruebas del bloque:
 mvn -Dtest=CiclosTACTest test
 ```
 
+## Switch (bloque 3)
+
+El selector se evalúa una sola vez y se copia a un temporal reservado. Los
+`case` se comparan con `==` en orden de aparición; la primera coincidencia
+salta al cuerpo correspondiente. Las expresiones de casos posteriores a una
+coincidencia no se evalúan. La gramática permite expresiones en los `case`,
+incluidas asignaciones; el temporal conserva el selector original frente a sus
+efectos secundarios. Si ninguna comparación coincide, se salta a `default`
+o directamente a la salida si no existe.
+
+Los cuerpos se emiten consecutivamente: sin `break`, la ejecución cae al
+siguiente caso y finalmente a `default`, sin repetir comparaciones. `break`
+sale del switch más cercano; `continue` busca el ciclo exterior más cercano.
+Un ciclo dentro de un switch mantiene sus propios destinos de salto.
+
+Después del despacho se libera el temporal del selector, pues los cuerpos ya
+no lo necesitan. Los contextos se restauran incluso si falla la traducción.
+El análisis semántico admite `break` dentro de ciclos o switches y mantiene
+`continue` exclusivo de ciclos. Las funciones anidadas no heredan permisos
+de salto de estructuras externas.
+
+Se conserva la comprobación semántica de tipos compatibles entre selector y
+casos. No se agrega validación de casos duplicados: la primera coincidencia
+determina el punto de entrada y puede haber caída a los siguientes cuerpos.
+
+Ejemplo: `examples/tac/switch.cps`. Verificación:
+
+```bash
+mvn -Dtest=SwitchTACTest test
+```
+
+Los nueve tests cubren selección, ausencia de coincidencia, default, switch
+vacío, caída entre casos, selector con efectos secundarios, anidamiento,
+combinación con ciclos y errores semánticos. Suite completa: 196 pruebas pasan.
+
+El bloque 4 pendiente es funciones, argumentos, llamadas y retornos; después
+se completarán los registros de activación y la representación de recursión.
+
+`foreach` sigue pendiente del contrato de longitud y acceso a arreglos con Persona 3.

@@ -31,6 +31,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         if (ctx.whileStatement() != null) return visit(ctx.whileStatement());
         if (ctx.doWhileStatement() != null) return visit(ctx.doWhileStatement());
         if (ctx.forStatement() != null) return visit(ctx.forStatement());
+        if (ctx.switchStatement() != null) return visit(ctx.switchStatement());
         if (ctx.breakStatement() != null) return visit(ctx.breakStatement());
         if (ctx.continueStatement() != null) return visit(ctx.continueStatement());
         if (ctx.block() != null) return visit(ctx.block());
@@ -114,6 +115,43 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
             generador.liberarTemporal(valor);
         }
         generador.generarSalto(condicion);
+        generador.emitirEtiqueta(salida);
+        return null;
+    }
+
+    @Override public Void visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {
+        String salida = generador.nuevaEtiqueta();
+        var destinos = new java.util.ArrayList<String>();
+        for (var caso : ctx.switchCase()) destinos.add(generador.nuevaEtiqueta());
+        String defecto = ctx.defaultCase() == null ? salida : generador.nuevaEtiqueta();
+        String valor = Objects.requireNonNull(expresiones.visit(ctx.expression()),
+                "Selector TAC no soportado");
+        // Congelar el selector: un case puede modificar la variable original.
+        String selector = generador.temporales().nuevoTemporal();
+        generador.generarAsignacion(selector, valor);
+        generador.liberarTemporal(valor);
+        try {
+            for (int i = 0; i < ctx.switchCase().size(); i++) {
+                String caso = Objects.requireNonNull(expresiones.visit(ctx.switchCase(i).expression()),
+                        "Expresión case TAC no soportada");
+                String comparacion = generador.generarOperacion("==", selector, caso);
+                generador.generarSaltoCondicional(comparacion, destinos.get(i));
+                generador.liberarTemporal(comparacion);
+                generador.liberarTemporal(caso);
+            }
+            generador.generarSalto(defecto);
+        } finally { generador.liberarTemporal(selector); }
+        contextos.push(new ContextoControl(salida, null));
+        try {
+            for (int i = 0; i < ctx.switchCase().size(); i++) {
+                generador.emitirEtiqueta(destinos.get(i));
+                for (var sentencia : ctx.switchCase(i).statement()) visit(sentencia);
+            }
+            if (ctx.defaultCase() != null) {
+                generador.emitirEtiqueta(defecto);
+                for (var sentencia : ctx.defaultCase().statement()) visit(sentencia);
+            }
+        } finally { contextos.pop(); }
         generador.emitirEtiqueta(salida);
         return null;
     }

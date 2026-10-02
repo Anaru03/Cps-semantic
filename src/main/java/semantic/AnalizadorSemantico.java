@@ -19,6 +19,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     private Simbolo funcionActual;
     private Simbolo claseActual;
     private boolean enBucle = false;
+    private int profundidadSwitch;
 
     public static AnalisisSemantico analizar(String fuente) {
         CompiscriptParser parser = new CompiscriptParser(new CommonTokenStream(
@@ -130,12 +131,16 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         Simbolo funcion = new Simbolo(ctx.Identifier().getText(), retorno, cat, actual, params, cuerpo);
         declarar(ctx, funcion); // antes del cuerpo: habilita recursion
         Ambito previo = actual; Simbolo previaFuncion = funcionActual;
+        boolean buclePrevio = enBucle;
+        int switchPrevio = profundidadSwitch;
+        enBucle = false; profundidadSwitch = 0;
         actual = cuerpo; funcionActual = funcion;
         if (ctx.parameters() != null) for (int i = 0; i < ctx.parameters().parameter().size(); i++) {
             var p = ctx.parameters().parameter(i);
             declarar(p, new Simbolo(p.Identifier().getText(), params.get(i), CategoriaSimbolo.PARAMETRO, actual));
         }
         visitarBloqueSinNuevoAmbito(ctx.block()); actual = previo; funcionActual = previaFuncion;
+        enBucle = buclePrevio; profundidadSwitch = switchPrevio;
         return TipoDato.VOID;
     }
 
@@ -323,6 +328,8 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {
         TipoDato tipoSwitch = visit(ctx.expression());
         Ambito anterior = actual; actual = new Ambito("switch", anterior);
+        profundidadSwitch++;
+        try {
         for (var c : ctx.switchCase()) {
             TipoDato tipoCase = visit(c.expression());
             if (!tipoSwitch.compatibleCon(tipoCase))
@@ -330,12 +337,13 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
             visitarSentencias(c.statement());
         }
         if (ctx.defaultCase() != null) visitarSentencias(ctx.defaultCase().statement());
-        actual = anterior;
+        } finally { profundidadSwitch--; actual = anterior; }
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitBreakStatement(CompiscriptParser.BreakStatementContext ctx) {
-        if (!enBucle) error(ctx, "'break' solo puede utilizarse dentro de un bucle");
+        if (!enBucle && profundidadSwitch == 0)
+            error(ctx, "'break' solo puede utilizarse dentro de un bucle o switch");
         return TipoDato.VOID;
     }
 

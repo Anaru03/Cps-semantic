@@ -13,7 +13,9 @@ public final class GeneradorTAC {
     private final java.util.Map<String, RegistroActivacion> registros = new java.util.LinkedHashMap<>();
     private final java.util.Deque<java.util.Map<String, String>> ambitos = new java.util.ArrayDeque<>();
     private final java.util.List<RegistroActivacion.Posicion> posiciones = new java.util.ArrayList<>();
+    private final java.util.Map<String, DescriptorClase> clases = new java.util.LinkedHashMap<>();
     private String funcionActiva;
+    private String claseActual;
     private int siguienteLocal;
     private int siguienteGlobal;
     private semantic.InformacionSemantica informacion = semantic.InformacionSemantica.vacia();
@@ -97,6 +99,55 @@ public final class GeneradorTAC {
                 && posiciones.stream().noneMatch(p -> p.operando().equals(operando)))
             posiciones.add(new RegistroActivacion.Posicion(operando, operando, "unknown",
                     RegistroActivacion.Clase.TEMPORAL, RegistroActivacion.CABECERA + posiciones.size()));
+    }
+
+    // ---- clases y objetos ----
+    public void registrarClase(DescriptorClase clase) {
+        if (clases.putIfAbsent(clase.nombre(), clase) != null)
+            throw new IllegalArgumentException("Clase duplicada: " + clase.nombre());
+    }
+    public DescriptorClase clase(String nombre) {
+        var clase = clases.get(nombre);
+        if (clase == null) throw new IllegalArgumentException("Clase desconocida: " + nombre);
+        return clase;
+    }
+    public String claseActual() { return claseActual; }
+    public void claseActual(String clase) { claseActual = clase; }
+    /** Etiqueta del constructor propio o heredado más cercano; null si no existe. */
+    public String etiquetaConstructor(String clase) {
+        for (String c = clase; c != null; c = clases.containsKey(c) ? clases.get(c).padre() : null)
+            if (funciones.containsKey(c + ".constructor")) return c + ".constructor";
+        return null;
+    }
+    public boolean existeClase(String nombre) { return clases.containsKey(nombre); }
+    public java.util.Map<String, DescriptorClase> clases() { return java.util.Collections.unmodifiableMap(clases); }
+    public boolean esSubclase(String hija, String ancestro) {
+        for (String c = hija; c != null; c = clases.containsKey(c) ? clases.get(c).padre() : null)
+            if (c.equals(ancestro)) return true;
+        return false;
+    }
+    /** Hay despacho dinámico si alguna subclase de {@code claseEstatica} redefine el método. */
+    public boolean requiereVirtual(String claseEstatica, DescriptorClase.Metodo metodo) {
+        for (var otra : clases.values()) {
+            if (otra.nombre().equals(claseEstatica) || !esSubclase(otra.nombre(), claseEstatica)) continue;
+            var redefinido = otra.metodo(metodo.nombre());
+            if (redefinido != null && !redefinido.declarante().equals(metodo.declarante())) return true;
+        }
+        return false;
+    }
+    public boolean requiereInicializacion(String clase) { return clases.get(clase).tieneInicializadores(); }
+    /** El símbolo referenciado es un atributo de clase: se accede mediante {@code this}. */
+    public boolean esAtributo(org.antlr.v4.runtime.ParserRuleContext ctx) {
+        var referencia = informacion.referencias().get(ctx);
+        return referencia != null && referencia.simbolo().categoria() == semantic.CategoriaSimbolo.ATRIBUTO;
+    }
+    public boolean esMetodo(org.antlr.v4.runtime.ParserRuleContext ctx) {
+        var referencia = informacion.referencias().get(ctx);
+        return referencia != null && referencia.simbolo().categoria() == semantic.CategoriaSimbolo.METODO;
+    }
+    public boolean esFuncionGlobal(org.antlr.v4.runtime.ParserRuleContext ctx) {
+        var referencia = informacion.referencias().get(ctx);
+        return referencia != null && referencia.simbolo().categoria() == semantic.CategoriaSimbolo.FUNCION;
     }
 
     public void registrarFuncion(DescriptorFuncion funcion) {
@@ -223,7 +274,7 @@ public final class GeneradorTAC {
         temporales.reiniciar();
         etiquetas.reiniciar();
         funciones.clear();
-        registros.clear(); posiciones.clear(); ambitos.clear(); funcionActiva = null;
+        registros.clear(); posiciones.clear(); ambitos.clear(); funcionActiva = null; clases.clear();
         enlaces.clear(); siguienteGlobal = 0; informacion = semantic.InformacionSemantica.vacia();
     }
 }

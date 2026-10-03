@@ -57,7 +57,7 @@ class ControlCondicionalTACTest {
 
     @Test void rechazaSentenciasTodaviaNoImplementadas() {
         assertThrows(UnsupportedOperationException.class,
-                () -> generar("print(1);"));
+                () -> generar("function f() { function g() {} }"));
     }
 
     @Test void comparteEmisorDeExpresionesYSentencias() {

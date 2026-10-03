@@ -178,7 +178,7 @@ class GeneradorExpresionesTACTest {
                 generar("a && b");
 
         assertEquals(
-                "t0 = a && b"
+                String.join(System.lineSeparator(), "t0 = a", "if t0 goto L1", "goto L0", "L1:", "t0 = b", "L0:")
                         + System.lineSeparator(),
                 resultado.codigo()
         );
@@ -190,7 +190,7 @@ class GeneradorExpresionesTACTest {
                 generar("a || b");
 
         assertEquals(
-                "t0 = a || b"
+                String.join(System.lineSeparator(), "t0 = a", "if t0 goto L0", "t0 = b", "L0:")
                         + System.lineSeparator(),
                 resultado.codigo()
         );

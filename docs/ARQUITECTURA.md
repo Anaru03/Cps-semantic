@@ -85,3 +85,16 @@ en esa misma lista como inalcanzable.
 
 Ver `README.md` para compilar, correr las pruebas y levantar el IDE
 (`mvn compile exec:java -Dexec.mainClass="ide.CompiscriptIDE"`).
+
+
+## Pipeline de la segunda fase
+
+```text
+Compilador.compilar(fuente)
+  Lexer/Parser (ANTLR) ─► AnalizadorSemantico ─► GeneradorSentenciasTAC + GeneradorExpresionesTAC ─► AnotadorSimbolos
+        errores ─────────────┴─ cualquier error detiene la generación de TAC
+```
+
+* `tac.GeneradorTAC`: emisor compartido, temporales, etiquetas, registros de activación, enlaces de símbolos y clases.
+* `tac.DescriptorClase`: layout de objetos y tabla de métodos. `tac.AnotadorSimbolos`: direcciones y etiquetas en `Simbolo`.
+* `ide.CompiscriptIDE` consume únicamente `Compilador.compilar` y muestra el resultado en `PanelesCompilacion`, `DiagramaArbol` y `TablaSimbolosPanel`.

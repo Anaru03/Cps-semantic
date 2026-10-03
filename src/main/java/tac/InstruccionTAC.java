@@ -5,7 +5,9 @@ import java.util.Objects;
 public final class InstruccionTAC {
     public enum Tipo { OPERACION, ETIQUETA, SALTO, SALTO_CONDICIONAL,
         FUNCION, FIN_FUNCION, PARAMETRO, ARGUMENTO, LLAMADA, RETORNO,
-        LONGITUD_ARREGLO, LECTURA_ARREGLO }
+        LONGITUD_ARREGLO, LECTURA_ARREGLO, ESCRITURA_ARREGLO, NUEVO_ARREGLO,
+        NUEVO_OBJETO, LECTURA_CAMPO, ESCRITURA_CAMPO, IMPRIMIR,
+        INICIO_TRY, FIN_TRY, CAPTURA, CLASE, FIN_CLASE }
 
     private final Tipo tipo;
 
@@ -28,8 +30,8 @@ public final class InstruccionTAC {
         this.operador = Objects.requireNonNull(operador);
         this.argumento1 = argumento1;
         this.argumento2 = argumento2;
-        this.resultado = tipo == Tipo.LLAMADA || tipo == Tipo.RETORNO
-                || tipo == Tipo.ARGUMENTO ? resultado : Objects.requireNonNull(resultado);
+        this.resultado = tipo == Tipo.LLAMADA || tipo == Tipo.RETORNO || tipo == Tipo.FIN_TRY
+                || tipo == Tipo.IMPRIMIR || tipo == Tipo.ARGUMENTO ? resultado : Objects.requireNonNull(resultado);
     }
 
     public static InstruccionTAC etiqueta(String nombre) {
@@ -62,6 +64,46 @@ public final class InstruccionTAC {
     public static InstruccionTAC llamada(String nombre, int cantidad, String resultado) {
         return new InstruccionTAC(Tipo.LLAMADA, "call", Objects.requireNonNull(nombre),
                 Integer.toString(cantidad), resultado);
+    }
+    /** Llamada con despacho dinámico: el receptor es el primer argumento (índice 0). */
+    public static InstruccionTAC llamadaVirtual(String nombre, int cantidad, String resultado) {
+        return new InstruccionTAC(Tipo.LLAMADA, "vcall", Objects.requireNonNull(nombre),
+                Integer.toString(cantidad), resultado);
+    }
+    public static InstruccionTAC escrituraArreglo(String arreglo, String indice, String valor) {
+        return new InstruccionTAC(Tipo.ESCRITURA_ARREGLO, "store_index", Objects.requireNonNull(indice),
+                Objects.requireNonNull(valor), Objects.requireNonNull(arreglo));
+    }
+    public static InstruccionTAC nuevoArreglo(int cantidad, String resultado) {
+        return new InstruccionTAC(Tipo.NUEVO_ARREGLO, "newarray", Integer.toString(cantidad), null, resultado);
+    }
+    public static InstruccionTAC nuevoObjeto(String clase, String resultado) {
+        return new InstruccionTAC(Tipo.NUEVO_OBJETO, "new", Objects.requireNonNull(clase), null, resultado);
+    }
+    public static InstruccionTAC lecturaCampo(String objeto, String campo, String resultado) {
+        return new InstruccionTAC(Tipo.LECTURA_CAMPO, "load_field", Objects.requireNonNull(objeto),
+                Objects.requireNonNull(campo), resultado);
+    }
+    public static InstruccionTAC escrituraCampo(String objeto, String campo, String valor) {
+        return new InstruccionTAC(Tipo.ESCRITURA_CAMPO, "store_field", Objects.requireNonNull(campo),
+                Objects.requireNonNull(valor), Objects.requireNonNull(objeto));
+    }
+    public static InstruccionTAC imprimir(String valor) {
+        return new InstruccionTAC(Tipo.IMPRIMIR, "print", Objects.requireNonNull(valor), null, null);
+    }
+    /** Instala un manejador: ante una excepción de runtime el control pasa a {@code destino}. */
+    public static InstruccionTAC inicioTry(String destino) {
+        return new InstruccionTAC(Tipo.INICIO_TRY, "try", null, null, destino);
+    }
+    public static InstruccionTAC finTry() { return new InstruccionTAC(Tipo.FIN_TRY, "endtry", null, null, null); }
+    public static InstruccionTAC captura(String variable) {
+        return new InstruccionTAC(Tipo.CAPTURA, "catch", null, null, variable);
+    }
+    public static InstruccionTAC clase(String nombre, String padre) {
+        return new InstruccionTAC(Tipo.CLASE, "class", padre, null, nombre);
+    }
+    public static InstruccionTAC finClase(String nombre) {
+        return new InstruccionTAC(Tipo.FIN_CLASE, "endclass", null, null, nombre);
     }
     public static InstruccionTAC retorno(String valor) {
         return new InstruccionTAC(Tipo.RETORNO, "return", valor, null, null);
@@ -101,7 +143,18 @@ public final class InstruccionTAC {
             case PARAMETRO: return resultado + " = param " + argumento1;
             case ARGUMENTO: return "arg " + argumento1;
             case LLAMADA: return (resultado == null ? "" : resultado + " = ")
-                    + "call " + argumento1 + ", " + argumento2;
+                    + operador + " " + argumento1 + ", " + argumento2;
+            case ESCRITURA_ARREGLO: return resultado + "[" + argumento1 + "] = " + argumento2;
+            case NUEVO_ARREGLO: return resultado + " = newarray " + argumento1;
+            case NUEVO_OBJETO: return resultado + " = new " + argumento1;
+            case LECTURA_CAMPO: return resultado + " = " + argumento1 + "." + argumento2;
+            case ESCRITURA_CAMPO: return resultado + "." + argumento1 + " = " + argumento2;
+            case IMPRIMIR: return "print " + argumento1;
+            case INICIO_TRY: return "try " + resultado;
+            case FIN_TRY: return "endtry";
+            case CAPTURA: return resultado + " = catch";
+            case CLASE: return "class " + resultado + (argumento1 == null ? "" : " : " + argumento1);
+            case FIN_CLASE: return "end class " + resultado;
             case RETORNO: return "return" + (argumento1 == null ? "" : " " + argumento1);
             case ETIQUETA: return resultado + ":";
             case SALTO: return "goto " + resultado;

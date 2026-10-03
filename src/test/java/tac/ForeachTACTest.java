@@ -135,7 +135,9 @@ class ForeachTACTest {
     }
     @Test void rechazaIterablesInvalidosYCreacionDeArreglosSiguePendiente() {
         assertFalse(Compilador.compilar("foreach (x in 3) {}").esValido());
-        assertFalse(Compilador.compilar("let a = [1, 2]; foreach (x in a) {}").esValido());
+        var literal = Compilador.compilar("let a = [1, 2]; foreach (x in a) {}");
+        assertTrue(literal.esValido());
+        assertTrue(literal.codigoTAC().contains("newarray 2"));
     }
     @Test void instruccionesTienenContratoExplicitoEIndicesLogicos() {
         assertEquals("t0 = length a", InstruccionTAC.longitudArreglo("a", "t0").toString());

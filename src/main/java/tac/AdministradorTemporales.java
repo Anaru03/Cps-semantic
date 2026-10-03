@@ -8,6 +8,7 @@ import java.util.Set;
 public final class AdministradorTemporales {
 
     private int siguiente;
+    private int solicitudes, reutilizados, maximoSimultaneos;
 
     private final Deque<String> disponibles;
     private final Set<String> enUso;
@@ -24,13 +25,16 @@ public final class AdministradorTemporales {
     public String nuevoTemporal() {
         String temporal;
 
+        solicitudes++;
         if (!disponibles.isEmpty()) {
             temporal = disponibles.removeFirst();
+            reutilizados++;
         } else {
             do { temporal = "t" + siguiente++; } while (reservados.contains(temporal));
         }
 
         enUso.add(temporal);
+        maximoSimultaneos = Math.max(maximoSimultaneos, enUso.size());
 
         return temporal;
     }
@@ -53,7 +57,14 @@ public final class AdministradorTemporales {
         return enUso.size();
     }
 
+    /** Métricas del reciclaje: solicitudes totales, temporales distintos creados y reutilizaciones. */
+    public record Estadisticas(int solicitudes, int distintos, int reutilizados, int maximoSimultaneos) { }
+    public Estadisticas estadisticas() {
+        return new Estadisticas(solicitudes, solicitudes - reutilizados, reutilizados, maximoSimultaneos);
+    }
+
     public void reiniciar() {
+        solicitudes = reutilizados = maximoSimultaneos = 0;
         siguiente = 0;
         disponibles.clear();
         enUso.clear();

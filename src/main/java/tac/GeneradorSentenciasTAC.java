@@ -12,9 +12,11 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
     private final GeneradorExpresionesTAC expresiones;
     // Un switch podrá agregar un contexto con continuación null: break usa el
     // contexto más cercano; continue busca el ciclo más cercano.
-    private record ContextoControl(String salida, String continuacion) { }
+    private record ContextoControl(String salida, String continuacion, int profundidadTry) { }
     private final Deque<ContextoControl> contextos = new ArrayDeque<>();
     private DescriptorFuncion funcionActual;
+    private int tryActivos;
+    private int profundidadBloque;
 
     @Override public Void visit(org.antlr.v4.runtime.tree.ParseTree nodo) {
         try { return super.visit(nodo); }
@@ -38,8 +40,55 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
                         funcion.type() == null ? "void" : funcion.type().getText()));
             }
         }
+        for (var sentencia : ctx.statement()) if (sentencia.classDeclaration() != null)
+            registrarClase(sentencia.classDeclaration());
         for (var sentencia : ctx.statement()) visit(sentencia);
         return null;
+    }
+
+    /** Calcula el layout del objeto, la tabla de métodos y las firmas (con 'this' implícito). */
+    private void registrarClase(CompiscriptParser.ClassDeclarationContext ctx) {
+        String nombre = ctx.Identifier(0).getText();
+        String padre = ctx.Identifier().size() > 1 ? ctx.Identifier(1).getText() : null;
+        DescriptorClase base = padre != null && generador.existeClase(padre) ? generador.clase(padre) : null;
+        var campos = new java.util.ArrayList<DescriptorClase.Campo>(base == null ? java.util.List.of() : base.campos());
+        var tabla = new java.util.ArrayList<DescriptorClase.Metodo>(base == null ? java.util.List.of() : base.tabla());
+        boolean inicializadores = base != null && base.tieneInicializadores();
+        for (var miembro : ctx.classMember()) {
+            if (miembro.variableDeclaration() != null) {
+                var v = miembro.variableDeclaration();
+                if (v.initializer() != null) inicializadores = true;
+                campos.add(new DescriptorClase.Campo(v.Identifier().getText(),
+                        generador.tipoDeclarado(v, v.typeAnnotation() == null ? "unknown" : v.typeAnnotation().type().getText()),
+                        DescriptorClase.CABECERA_OBJETO + campos.size(), nombre, false));
+            } else if (miembro.constantDeclaration() != null) {
+                var c = miembro.constantDeclaration();
+                inicializadores = true;
+                campos.add(new DescriptorClase.Campo(c.Identifier().getText(),
+                        generador.tipoDeclarado(c, c.typeAnnotation() == null ? "unknown" : c.typeAnnotation().type().getText()),
+                        DescriptorClase.CABECERA_OBJETO + campos.size(), nombre, true));
+            } else {
+                var f = miembro.functionDeclaration();
+                String metodo = f.Identifier().getText();
+                String etiqueta = nombre + "." + metodo;
+                var parametros = new java.util.ArrayList<DescriptorFuncion.Parametro>();
+                parametros.add(new DescriptorFuncion.Parametro("this", nombre));
+                if (f.parameters() != null) for (var parametro : f.parameters().parameter())
+                    parametros.add(new DescriptorFuncion.Parametro(parametro.Identifier().getText(),
+                            generador.tipoDeclarado(parametro, parametro.type() == null ? "unknown" : parametro.type().getText())));
+                generador.registrarFuncion(new DescriptorFuncion(etiqueta, parametros,
+                        f.type() == null ? "void" : f.type().getText()));
+                if (metodo.equals("constructor")) continue;
+                int existente = -1;
+                for (int i = 0; i < tabla.size(); i++) if (tabla.get(i).nombre().equals(metodo)) existente = i;
+                if (existente >= 0) tabla.set(existente, new DescriptorClase.Metodo(metodo, etiqueta, nombre,
+                        tabla.get(existente).ranura(), true));
+                else tabla.add(new DescriptorClase.Metodo(metodo, etiqueta, nombre, tabla.size(), false));
+            }
+        }
+        if (inicializadores) generador.registrarFuncion(new DescriptorFuncion(nombre + ".$init",
+                java.util.List.of(new DescriptorFuncion.Parametro("this", nombre)), "void"));
+        generador.registrarClase(new DescriptorClase(nombre, padre, campos, tabla, inicializadores));
     }
 
     private void reservarIdentificadores(org.antlr.v4.runtime.tree.ParseTree nodo) {
@@ -72,6 +121,15 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         if (ctx.breakStatement() != null) return visit(ctx.breakStatement());
         if (ctx.continueStatement() != null) return visit(ctx.continueStatement());
         if (ctx.block() != null) return visit(ctx.block());
+        if (ctx.classDeclaration() != null) return visit(ctx.classDeclaration());
+        if (ctx.tryCatchStatement() != null) return visit(ctx.tryCatchStatement());
+        if (ctx.printStatement() != null) {
+            String valor = Objects.requireNonNull(expresiones.visit(ctx.printStatement().expression()),
+                    "Expresión de print sin valor TAC");
+            generador.emitir(InstruccionTAC.imprimir(valor));
+            generador.liberarTemporal(valor);
+            return null;
+        }
         if (ctx.variableDeclaration() != null || ctx.constantDeclaration() != null || ctx.assignment() != null
                 || ctx.expressionStatement() != null) {
             String valor = ctx.expressionStatement() == null ? expresiones.visit(ctx.getChild(0))
@@ -83,49 +141,104 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
                 + ctx.getStart().getText() + " en línea " + ctx.getStart().getLine());
     }
 
+    @Override public Void visitBlock(CompiscriptParser.BlockContext ctx) {
+        generador.entrarAmbito(); profundidadBloque++;
+        try { for (var sentencia : ctx.statement()) visit(sentencia); }
+        finally { generador.salirAmbito(); profundidadBloque--; }
+        return null;
+    }
+
+
+    // ---------------- funciones, métodos y clases ----------------
+
     @Override public Void visitFunctionDeclaration(CompiscriptParser.FunctionDeclarationContext ctx) {
-        if (funcionActual != null || !contextos.isEmpty())
+        if (funcionActual != null || !contextos.isEmpty() || profundidadBloque > 0)
             throw new UnsupportedOperationException("Funciones anidadas no soportadas en TAC");
-        var funcion = generador.funcion(ctx.Identifier().getText());
-        if (funcion.devuelveValor() && !garantizaRetorno(ctx.block()))
+        var parametros = ctx.parameters() == null ? java.util.List.<CompiscriptParser.ParameterContext>of()
+                : ctx.parameters().parameter();
+        emitirFuncion(ctx.Identifier().getText(), parametros, ctx.block(), null, true);
+        return null;
+    }
+
+    /**
+     * Emite el cuerpo de una función o método. {@code cuerpo} puede ser null cuando el contenido
+     * lo produce {@code generarCuerpo} (inicializador de atributos); {@code saltar} omite el
+     * código de la función durante la ejecución del programa principal.
+     */
+    private void emitirFuncion(String etiqueta, java.util.List<CompiscriptParser.ParameterContext> parametros,
+                               CompiscriptParser.BlockContext cuerpo, Runnable generarCuerpo, boolean saltar) {
+        var funcion = generador.funcion(etiqueta);
+        if (cuerpo != null && funcion.devuelveValor() && !garantizaRetorno(cuerpo))
             throw new IllegalArgumentException("No se garantiza retorno en función: " + funcion.nombre());
-        String despues = generador.nuevaEtiqueta();
-        generador.generarSalto(despues);
+        String despues = saltar ? generador.nuevaEtiqueta() : null;
+        if (saltar) generador.generarSalto(despues);
         generador.emitir(InstruccionTAC.funcion(funcion.nombre()));
         generador.iniciarFuncion(funcion.nombre());
-        if (ctx.parameters() != null) for (var parametro : ctx.parameters().parameter())
+        for (var parametro : parametros)
             generador.vincular(parametro, generador.resolverNombre(parametro.Identifier().getText()));
         for (int i = 0; i < funcion.parametros().size(); i++)
             generador.emitir(InstruccionTAC.parametro(
                     generador.resolverNombre(funcion.parametros().get(i).nombre()), i));
-        funcionActual = funcion;
-        try { for (var sentencia : ctx.block().statement()) visit(sentencia); }
-        finally { funcionActual = null; generador.finalizarFuncion(); }
-        // Retorno implícito únicamente para funciones sin valor.
+        funcionActual = funcion; tryActivos = 0;
+        try {
+            if (cuerpo != null) for (var sentencia : cuerpo.statement()) visit(sentencia);
+            else generarCuerpo.run();
+        } finally { funcionActual = null; generador.finalizarFuncion(); }
         if (!funcion.devuelveValor()) generador.emitir(InstruccionTAC.retorno(null));
         generador.emitir(InstruccionTAC.finFuncion(funcion.nombre()));
+        if (saltar) generador.emitirEtiqueta(despues);
+    }
+
+    @Override public Void visitClassDeclaration(CompiscriptParser.ClassDeclarationContext ctx) {
+        if (funcionActual != null || !contextos.isEmpty() || profundidadBloque > 0)
+            throw new UnsupportedOperationException("Clases anidadas no soportadas en TAC");
+        String nombre = ctx.Identifier(0).getText();
+        var descriptor = generador.clase(nombre);
+        String despues = generador.nuevaEtiqueta();
+        generador.generarSalto(despues);
+        generador.emitir(InstruccionTAC.clase(nombre, descriptor.padre()));
+        generador.claseActual(nombre);
+        try {
+            if (descriptor.tieneInicializadores()) emitirFuncion(nombre + ".$init", java.util.List.of(), null,
+                    () -> generarInicializadores(ctx, descriptor), false);
+            for (var miembro : ctx.classMember()) {
+                var f = miembro.functionDeclaration();
+                if (f == null) continue;
+                var parametros = f.parameters() == null ? java.util.List.<CompiscriptParser.ParameterContext>of()
+                        : f.parameters().parameter();
+                emitirFuncion(nombre + "." + f.Identifier().getText(), parametros, f.block(), null, false);
+            }
+        } finally { generador.claseActual(null); }
+        generador.emitir(InstruccionTAC.finClase(nombre));
         generador.emitirEtiqueta(despues);
         return null;
     }
 
-    @Override public Void visitBlock(CompiscriptParser.BlockContext ctx) {
-        generador.entrarAmbito();
-        try { for (var sentencia : ctx.statement()) visit(sentencia); }
-        finally { generador.salirAmbito(); }
-        return null;
+    /** Inicializa los atributos propios (después de los de la superclase) con sus valores declarados. */
+    private void generarInicializadores(CompiscriptParser.ClassDeclarationContext ctx, DescriptorClase descriptor) {
+        String objeto = generador.resolverNombre("this");
+        if (descriptor.padre() != null && generador.requiereInicializacion(descriptor.padre())) {
+            generador.emitir(InstruccionTAC.argumento(objeto));
+            generador.emitir(InstruccionTAC.llamada(descriptor.padre() + ".$init", 1, null));
+        }
+        for (var miembro : ctx.classMember()) {
+            String campo; CompiscriptParser.ExpressionContext valor;
+            if (miembro.variableDeclaration() != null && miembro.variableDeclaration().initializer() != null) {
+                campo = miembro.variableDeclaration().Identifier().getText();
+                valor = miembro.variableDeclaration().initializer().expression();
+            } else if (miembro.constantDeclaration() != null) {
+                campo = miembro.constantDeclaration().Identifier().getText();
+                valor = miembro.constantDeclaration().expression();
+            } else continue;
+            String resultado = Objects.requireNonNull(expresiones.visit(valor), "Inicializador sin valor TAC");
+            generador.emitir(InstruccionTAC.escrituraCampo(objeto, campo, resultado));
+            generador.liberarTemporal(resultado);
+        }
     }
 
-    // Comprobación conservadora: retorno directo, bloque o if con ambas ramas.
-    private boolean garantizaRetorno(CompiscriptParser.BlockContext bloque) {
-        for (var sentencia : bloque.statement()) {
-            if (sentencia.returnStatement() != null) return true;
-            if (sentencia.block() != null && garantizaRetorno(sentencia.block())) return true;
-            var condicional = sentencia.ifStatement();
-            if (condicional != null && condicional.block().size() == 2
-                    && garantizaRetorno(condicional.block(0)) && garantizaRetorno(condicional.block(1))) return true;
-        }
-        return false;
-    }
+    // ---------------- retornos, saltos y try/catch ----------------
+
+    private void cerrarTry(int hasta) { for (int i = tryActivos; i > hasta; i--) generador.emitir(InstruccionTAC.finTry()); }
 
     @Override public Void visitReturnStatement(CompiscriptParser.ReturnStatementContext ctx) {
         if (funcionActual == null) throw new IllegalStateException("return fuera de una función");
@@ -133,9 +246,68 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
             throw new IllegalArgumentException("Retorno incompatible: " + funcionActual.nombre());
         String valor = ctx.expression() == null ? null : expresiones.visit(ctx.expression());
         if (ctx.expression() != null && valor == null) throw new IllegalArgumentException("Retorno sin valor");
+        cerrarTry(0); // un return dentro de try desinstala todos los manejadores activos
         generador.emitir(InstruccionTAC.retorno(valor));
         generador.liberarTemporal(valor);
         return null;
+    }
+
+    @Override public Void visitBreakStatement(CompiscriptParser.BreakStatementContext ctx) {
+        if (contextos.isEmpty()) throw new IllegalStateException("break fuera de un ciclo o switch");
+        cerrarTry(contextos.peek().profundidadTry());
+        generador.generarSalto(contextos.peek().salida());
+        return null;
+    }
+
+    @Override public Void visitContinueStatement(CompiscriptParser.ContinueStatementContext ctx) {
+        for (var contexto : contextos) {
+            if (contexto.continuacion() != null) {
+                cerrarTry(contexto.profundidadTry());
+                generador.generarSalto(contexto.continuacion());
+                return null;
+            }
+        }
+        throw new IllegalStateException("continue fuera de un ciclo");
+    }
+
+    @Override public Void visitTryCatchStatement(CompiscriptParser.TryCatchStatementContext ctx) {
+        String captura = generador.nuevaEtiqueta(), fin = generador.nuevaEtiqueta();
+        generador.emitir(InstruccionTAC.inicioTry(captura));
+        tryActivos++;
+        try { visit(ctx.block(0)); } finally { tryActivos--; }
+        generador.emitir(InstruccionTAC.finTry());
+        generador.generarSalto(fin);
+        generador.emitirEtiqueta(captura);
+        generador.entrarAmbito();
+        try {
+            String variable = generador.declarar(ctx, ctx.Identifier().getText(), "string");
+            generador.emitir(InstruccionTAC.captura(variable));
+            visit(ctx.block(1));
+        } finally { generador.salirAmbito(); }
+        generador.emitirEtiqueta(fin);
+        return null;
+    }
+
+    // Comprobación conservadora: retorno directo, bloque, if/else, try/catch o switch con default
+    // cuyos cuerpos retornan; un ciclo nunca se considera garantía de retorno.
+    private boolean garantizaRetorno(CompiscriptParser.BlockContext bloque) { return garantizaRetorno(bloque.statement()); }
+
+    private boolean garantizaRetorno(java.util.List<CompiscriptParser.StatementContext> sentencias) {
+        for (var sentencia : sentencias) {
+            if (sentencia.returnStatement() != null) return true;
+            if (sentencia.block() != null && garantizaRetorno(sentencia.block())) return true;
+            var intento = sentencia.tryCatchStatement();
+            if (intento != null && garantizaRetorno(intento.block(0)) && garantizaRetorno(intento.block(1))) return true;
+            var condicional = sentencia.ifStatement();
+            if (condicional != null && condicional.block().size() == 2
+                    && garantizaRetorno(condicional.block(0)) && garantizaRetorno(condicional.block(1))) return true;
+            var seleccion = sentencia.switchStatement();
+            if (seleccion != null && seleccion.defaultCase() != null
+                    && garantizaRetorno(seleccion.defaultCase().statement())
+                    && seleccion.switchCase().stream().allMatch(c -> c.statement().isEmpty() || garantizaRetorno(c.statement())))
+                return true;
+        }
+        return false;
     }
 
     private void emitirCondicion(CompiscriptParser.ExpressionContext ctx,
@@ -148,7 +320,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
 
     private void visitarCuerpo(CompiscriptParser.BlockContext cuerpo,
                               String salida, String continuacion) {
-        contextos.push(new ContextoControl(salida, continuacion));
+        contextos.push(new ContextoControl(salida, continuacion, tryActivos));
         try { visit(cuerpo); }
         finally { contextos.pop(); }
     }
@@ -285,7 +457,7 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
             }
             generador.generarSalto(defecto);
         } finally { generador.liberarTemporal(selector); }
-        contextos.push(new ContextoControl(salida, null));
+        contextos.push(new ContextoControl(salida, null, tryActivos));
         generador.entrarAmbito();
         try {
             for (int i = 0; i < ctx.switchCase().size(); i++) {
@@ -299,22 +471,6 @@ public final class GeneradorSentenciasTAC extends CompiscriptBaseVisitor<Void> {
         } finally { contextos.pop(); generador.salirAmbito(); }
         generador.emitirEtiqueta(salida);
         return null;
-    }
-
-    @Override public Void visitBreakStatement(CompiscriptParser.BreakStatementContext ctx) {
-        if (contextos.isEmpty()) throw new IllegalStateException("break fuera de un ciclo o switch");
-        generador.generarSalto(contextos.peek().salida());
-        return null;
-    }
-
-    @Override public Void visitContinueStatement(CompiscriptParser.ContinueStatementContext ctx) {
-        for (var contexto : contextos) {
-            if (contexto.continuacion() != null) {
-                generador.generarSalto(contexto.continuacion());
-                return null;
-            }
-        }
-        throw new IllegalStateException("continue fuera de un ciclo");
     }
 
     @Override

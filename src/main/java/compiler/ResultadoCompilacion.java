@@ -11,11 +11,14 @@ public record ResultadoCompilacion(CompiscriptParser.ProgramContext arbol,
                                   List<InstruccionTAC> instrucciones,
                                   Map<String, DescriptorFuncion> funciones,
                                   Map<String, RegistroActivacion> registros,
-                                  List<EnlaceSimboloTAC> enlaces) {
+                                  List<EnlaceSimboloTAC> enlaces,
+                                  Map<String, DescriptorClase> clases,
+                                  AdministradorTemporales.Estadisticas temporales) {
     public ResultadoCompilacion {
         errores = List.copyOf(errores); instrucciones = List.copyOf(instrucciones);
         funciones = Collections.unmodifiableMap(new LinkedHashMap<>(funciones));
         registros = Collections.unmodifiableMap(new LinkedHashMap<>(registros)); enlaces = List.copyOf(enlaces);
+        clases = Collections.unmodifiableMap(new LinkedHashMap<>(clases));
     }
     public boolean esValido() { return errores.isEmpty(); }
     public String codigoTAC() {

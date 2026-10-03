@@ -543,3 +543,20 @@ Quedan pendientes arreglos/clases, construcciones señaladas en `docs/TAC.md` y 
   <b>Universidad del Valle de Guatemala</b><br/>
   Construcción de Compiladores
 </p>
+
+---
+
+## Uso del IDE (Proyecto 2)
+
+```bash
+mvn compile exec:java -Dexec.mainClass=ide.CompiscriptIDE      # o: ejecutar ide.CompiscriptIDE desde el IDE de Java
+```
+
+1. **Abrir…** selecciona un archivo `.cps` desde el selector gráfico (también se puede escribir en el editor).
+2. **Compilar** (o Ctrl+Enter) ejecuta léxico → sintaxis → semántica → TAC.
+3. Pestañas: **Errores** (clic en un error salta a su línea), **Código intermedio (TAC)**, **Árbol sintáctico** (diagrama con nodos y conexiones, zoom, búsqueda y plegado),
+   **Tabla de símbolos** (con tipo, ámbito, offset, etiqueta y tamaño) y **Registros y clases** (layout de registros de activación y objetos).
+
+Ejemplos en `examples/tac` (programas válidos) y `examples/errores` (errores léxicos, sintácticos y semánticos).
+Pruebas: `mvn test` (incluye `CompletoTACTest`, que ejecuta el TAC con un intérprete de prueba para verificar comportamiento).
+Documentación: `docs/TAC.md` (lenguaje intermedio), `docs/ARQUITECTURA.md`, `docs/DIAGRAMA_ARBOL.md`.

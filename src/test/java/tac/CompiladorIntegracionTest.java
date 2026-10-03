@@ -30,8 +30,8 @@ class CompiladorIntegracionTest {
         }
     }
     @Test void noPublicaCodigoParcialAnteConstruccionPendiente() {
-        for (var fuente : List.of("let x = 1; print(x);", "let x = [1, 2];",
-                "let x = true ? 1 : 2;", "function f(): integer {}")) {
+        for (var fuente : List.of("function f() { function g() {} }",
+                "function h() { class B { } }", "function f(): integer {}")) {
             var resultado = Compilador.compilar(fuente);
             assertFalse(resultado.esValido()); assertEquals("", resultado.codigoTAC());
             assertNotNull(resultado.analisis()); assertTrue(resultado.enlaces().isEmpty());
@@ -39,7 +39,7 @@ class CompiladorIntegracionTest {
         }
     }
     @Test void diagnosticoDeSoporteTieneLineaReal() {
-        var resultado = Compilador.compilar("let x = 1;\n\nprint(x);");
+        var resultado = Compilador.compilar("let x = 1;\n\nfunction f() { function g() {} }");
         assertEquals(3, resultado.errores().get(0).linea());
         var retorno = Compilador.compilar("let x = 1;\n\nfunction f(): integer {}");
         assertEquals(3, retorno.errores().get(0).linea());

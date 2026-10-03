@@ -118,10 +118,12 @@ public final class DiagramaArbol extends JPanel {
                 BorderFactory.createLineBorder(new Color(71, 85, 105)), BorderFactory.createEmptyBorder(5, 8, 5, 8)));
         boton.addActionListener(e -> accion.run()); panel.add(boton);
     }
-    public void mostrar(ParseTree arbol, CompiscriptParser parser) {
+    public void mostrar(ParseTree arbol, CompiscriptParser parser) { mostrar(arbol, parser.getRuleNames()); }
+    public void mostrar(ParseTree arbol) { mostrar(arbol, CompiscriptParser.ruleNames); }
+    public void mostrar(ParseTree arbol, String[] nombresReglas) {
         if (carga != null) carga.cancel(true);
         modelo = null; visibles = List.of(); seleccionado = null; lienzo.repaint(); estado.setText("Preparando diagrama…");
-        String[] reglas = parser.getRuleNames().clone();
+        String[] reglas = nombresReglas.clone();
         carga = new SwingWorker<>() {
             @Override protected Modelo doInBackground() { return construir(arbol, reglas); }
             @Override protected void done() {

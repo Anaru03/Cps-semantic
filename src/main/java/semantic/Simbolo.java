@@ -10,6 +10,18 @@ public final class Simbolo {
     private final Ambito ambito;
     private final List<TipoDato> parametros;
     private final Ambito miembros;
+    private Almacenamiento almacenamiento;
+
+    /**
+     * Datos que la generación de código intermedio añade al símbolo para el backend.
+     * Los offsets son slots lógicos: dentro del segmento global, del registro de activación o del objeto.
+     */
+    public record Almacenamiento(Clase clase, String operando, String funcion, Integer offset,
+                                 String etiqueta, Integer tamano, Integer ranura) {
+        public enum Clase { GLOBAL, LOCAL, PARAMETRO, CAMPO, FUNCION, METODO, CLASE }
+    }
+    public Almacenamiento almacenamiento() { return almacenamiento; }
+    public void asignarAlmacenamiento(Almacenamiento almacenamiento) { this.almacenamiento = almacenamiento; }
 
     public Simbolo(String nombre, TipoDato tipo, CategoriaSimbolo categoria, Ambito ambito) {
         this(nombre, tipo, categoria, ambito, List.of(), null);
@@ -33,6 +45,8 @@ public final class Simbolo {
 
     /** Crea una copia de este simbolo con un tipo distinto, preservando el resto de la informacion. */
     public Simbolo conTipo(TipoDato nuevoTipo) {
-        return new Simbolo(nombre, nuevoTipo, categoria, ambito, parametros, miembros);
+        Simbolo copia = new Simbolo(nombre, nuevoTipo, categoria, ambito, parametros, miembros);
+        copia.almacenamiento = almacenamiento;
+        return copia;
     }
 }

@@ -356,3 +356,80 @@ de arreglo; verifican vacíos, anidamiento, sombras, llamadas, break/continue y 
 ```bash
 mvn -Dtest=ForeachTACTest test
 ```
+
+## Cierre del proyecto: arreglos, clases, herencia, try/catch y lógicas
+
+### Catálogo completo de instrucciones
+
+| Forma | Significado |
+|---|---|
+| `x = a op b`, `x = op a`, `x = a` | Operación binaria, unaria y copia |
+| `label L:` → `L:` / `goto L` / `if c goto L` | Etiquetas y saltos |
+| `function f` … `end function f` | Delimitan el código de una función o método (`Clase.metodo`) |
+| `p = param i` | Recibe el argumento `i` (en métodos, el 0 es `this`) |
+| `arg v` / `t = call f, n` / `call f, n` | Argumentos y llamada directa |
+| `t = vcall Clase.m, n` | Llamada con **despacho dinámico**: el receptor es el argumento 0 y el método se resuelve con la clase real del objeto |
+| `return` / `return v` | Retorno |
+| `t = newarray n` | Crea un arreglo de `n` elementos |
+| `t = a[i]` / `a[i] = v` | Lectura y escritura por índice (`load_index` / `store_index`) |
+| `t = length a` | Longitud (`a.length`) |
+| `t = new Clase` | Reserva un objeto (slot 0: cabecera/clase) |
+| `t = o.campo` / `o.campo = v` | Lectura y escritura de atributos |
+| `print v` | Salida |
+| `try L` / `endtry` / `e = catch` | Instala un manejador cuyo destino es `L`; lo retira; recibe el mensaje de la excepción |
+| `class C : P` … `end class C` | Delimitan los métodos de una clase |
+
+### Expresiones lógicas y ternario
+`&&` y `||` usan **cortocircuito**: el operando derecho solo se evalúa si es necesario.
+El resultado reutiliza el temporal del primer operando.
+`c ? a : b` emite dos ramas que asignan al mismo temporal.
+
+```text
+t0 = a > 1
+if t0 goto L1      ; a && b
+goto L0
+L1:
+t1 = b == 0
+t0 = t1
+L0:
+```
+
+### Arreglos
+Un literal crea el arreglo y escribe cada elemento; los arreglos anidados se crean de adentro hacia afuera.
+Los índices son lógicos (desde 0). `foreach` y el acceso por índice usan las mismas instrucciones.
+
+### Clases y objetos
+* Layout del objeto (`DescriptorClase`): slot 0 = cabecera; los atributos siguen en orden de declaración.
+  Los campos heredados **conservan el offset** del padre, por lo que un objeto de la subclase se puede usar como el del padre.
+* Los atributos con valor inicial (`let x = 4;`, `const`) se inicializan en la función `Clase.$init`,
+  que `new` invoca antes del constructor; `Sub.$init` llama primero a `Padre.$init`.
+* Un método recibe `this` como parámetro 0. Dentro de la clase, los atributos y métodos sin `this.` se traducen a
+  `load_field`/`store_field`/`call` sobre `this`.
+* Constructores: `new C(args)` → `new`, `$init` (si aplica), `call C.constructor`. Si `C` no define constructor se usa el heredado más cercano.
+
+### Herencia y despacho
+La tabla de métodos asigna una **ranura** por nombre; una sobrescritura conserva la ranura del padre (`sobrescribe = true`).
+Se emite `vcall` solo cuando alguna subclase redefine el método; en caso contrario, `call` directo.
+La semántica acepta subclases donde se espera su superclase, valida firmas de métodos sobrescritos y detecta herencia de clases inexistentes.
+
+### try / catch
+`try L` instala el manejador de `L`. Al terminar el bloque se emite `endtry` y se salta al final del `catch`.
+`return`, `break` y `continue` emiten los `endtry` necesarios para desinstalar los manejadores que abandonan.
+La variable del `catch` es de tipo `string` (mensaje de la excepción). Una excepción de una función llamada
+la captura el manejador activo más cercano en la pila de llamadas.
+(Tras un `return` dentro de `try` queda un `endtry` inalcanzable; es inofensivo.)
+
+### Temporales
+`AdministradorTemporales` entrega siempre el temporal libre más antiguo y lo recibe de vuelta en cuanto su valor deja de ser necesario.
+`ResultadoCompilacion.temporales()` expone solicitudes, temporales distintos, reutilizaciones y máximo simultáneo; el IDE los muestra.
+
+### Tabla de símbolos
+`Simbolo.almacenamiento()` (completado por `AnotadorSimbolos`) contiene: clase de almacenamiento
+(GLOBAL, LOCAL, PARAMETRO, CAMPO, FUNCION, METODO, CLASE), operando TAC, función propietaria, **offset**
+(segmento global, registro de activación u objeto), etiqueta, tamaño en slots y ranura de la tabla de métodos.
+Los registros de activación (bloque 5) siguen siendo el modelo de ejecución de funciones y métodos.
+
+### Errores
+Se reportan todos los errores léxicos, sintácticos (ANTLR recupera) y semánticos de una ejecución; los mensajes se traducen al español,
+se eliminan duplicados, un error no genera mensajes derivados (el tipo `error` se propaga en silencio) y los errores
+sintácticos en una línea con símbolo ilegal se omiten. **Con cualquier error no se genera TAC.**

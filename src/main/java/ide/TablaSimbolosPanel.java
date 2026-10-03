@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
 /** Vista de símbolos en filas; conserva la identidad de los ámbitos homónimos. */
 public final class TablaSimbolosPanel extends JPanel {
     private final DefaultTableModel modelo = new DefaultTableModel(
-            new String[]{"Nombre", "Tipo", "Categoría", "Ámbito", "Parámetros"}, 0) {
+            new String[]{"Nombre", "Tipo", "Categoría", "Ámbito", "Parámetros",
+                    "Almacenamiento", "Operando TAC", "Offset", "Etiqueta", "Tamaño (slots)"}, 0) {
         @Override public boolean isCellEditable(int fila, int columna) { return false; }
     };
     private final JTable tabla = new JTable(modelo);
@@ -35,7 +36,7 @@ public final class TablaSimbolosPanel extends JPanel {
         tabla.setForeground(new Color(226, 232, 240)); tabla.setGridColor(new Color(51, 65, 85));
         tabla.setSelectionBackground(new Color(30, 64, 175)); tabla.setSelectionForeground(Color.WHITE);
         tabla.setShowVerticalLines(false); tabla.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-        int[] anchos = {160, 130, 120, 290, 220};
+        int[] anchos = {140, 110, 110, 280, 170, 130, 170, 70, 150, 100};
         for (int i = 0; i < anchos.length; i++) tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
         var renderer = new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(JTable table, Object valor,
@@ -84,8 +85,13 @@ public final class TablaSimbolosPanel extends JPanel {
         for (var ambito : ambitos) for (var simbolo : ambito.simbolos()) {
             String parametros = simbolo.parametros().stream().map(Object::toString)
                     .collect(java.util.stream.Collectors.joining(", "));
+            var a = simbolo.almacenamiento();
             modelo.addRow(new Object[]{simbolo.nombre(), simbolo.tipo().toString(), simbolo.categoria().toString(),
-                    rutas.get(ambito), parametros});
+                    rutas.get(ambito), parametros,
+                    a == null ? "—" : a.clase().toString(), a == null || a.operando() == null ? "" : a.operando(),
+                    a == null || a.offset() == null ? "" : a.offset().toString(),
+                    a == null || a.etiqueta() == null ? "" : a.etiqueta(),
+                    a == null || a.tamano() == null ? "" : a.tamano().toString()});
         }
         actualizarConteo();
     }

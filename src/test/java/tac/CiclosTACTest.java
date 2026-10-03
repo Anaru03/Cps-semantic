@@ -124,7 +124,7 @@ class CiclosTACTest {
     @Test void limpiaContextoCuandoFallaLaTraduccionDelCuerpo() {
         var visitor = new GeneradorSentenciasTAC();
         var parser = new CompiscriptParser(new CommonTokenStream(new CompiscriptLexer(
-                CharStreams.fromString("while (true) { print(1); }"))));
+                CharStreams.fromString("while (true) { function g() {} }"))));
         assertThrows(UnsupportedOperationException.class, () -> visitor.visit(parser.program()));
         var salto = new CompiscriptParser(new CommonTokenStream(new CompiscriptLexer(
                 CharStreams.fromString("break;"))));

@@ -19,13 +19,59 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     private Simbolo funcionActual;
     private Simbolo claseActual;
     private boolean enBucle = false;
+    private int profundidadSwitch;
+    private final java.util.Map<ParserRuleContext, TipoDato> tipos = new java.util.IdentityHashMap<>();
+    private final java.util.Map<ParserRuleContext, Ambito> ambitos = new java.util.IdentityHashMap<>();
+    private final java.util.Map<ParserRuleContext, InformacionSemantica.Referencia> referencias = new java.util.IdentityHashMap<>();
+
+    @Override public TipoDato visit(org.antlr.v4.runtime.tree.ParseTree nodo) {
+        if (nodo instanceof ParserRuleContext ctx) ambitos.put(ctx, actual);
+        TipoDato tipo = super.visit(nodo);
+        if (nodo instanceof ParserRuleContext ctx && tipo != null) tipos.put(ctx, tipo);
+        return tipo;
+    }
 
     public static AnalisisSemantico analizar(String fuente) {
         CompiscriptParser parser = new CompiscriptParser(new CommonTokenStream(
                 new CompiscriptLexer(CharStreams.fromString(fuente))));
+        return analizar(parser.program());
+    }
+
+    public static AnalisisSemantico analizar(CompiscriptParser.ProgramContext arbol) {
         AnalizadorSemantico analizador = new AnalizadorSemantico();
-        analizador.visit(parser.program());
-        return new AnalisisSemantico(new ResultadoSemantico(analizador.errores), analizador.global);
+        analizador.visit(arbol);
+        return new AnalisisSemantico(new ResultadoSemantico(analizador.errores), analizador.global,
+                new InformacionSemantica(analizador.tipos, analizador.ambitos, analizador.referencias));
+    }
+
+
+    private final java.util.Map<String, String> padres = new java.util.HashMap<>();
+    private final java.util.Set<Simbolo> esConstante = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private boolean hayError(TipoDato... ts) { for (var t : ts) if (t == null || t.base() == Tipo.ERROR) return true; return false; }
+    private boolean esSubclase(String hija, String ancestro) {
+        for (String c = hija; c != null; c = padres.get(c)) if (c.equals(ancestro)) return true;
+        return false;
+    }
+    /** Compatibilidad de asignación: igualdad de tipos, subclase a superclase y arreglos de ellas. */
+    private boolean compatible(TipoDato esperado, TipoDato recibido) {
+        if (esperado == null || recibido == null) return false;
+        if (esperado.base() == Tipo.CLASS && recibido.base() == Tipo.CLASS)
+            return esSubclase(recibido.nombreClase(), esperado.nombreClase());
+        if (esperado.base() == Tipo.ARRAY && recibido.base() == Tipo.ARRAY) {
+            if (recibido.elemento().base() == Tipo.UNKNOWN) return true; // [] vacío
+            return compatible(esperado.elemento(), recibido.elemento());
+        }
+        return esperado.compatibleCon(recibido);
+    }
+    /** Busca un miembro en la clase y sus superclases. */
+    private Simbolo buscarMiembro(String clase, String nombre) {
+        for (String c = clase; c != null; c = padres.get(c)) {
+            Simbolo simbolo = global.buscar(c).orElse(null);
+            if (simbolo == null || simbolo.miembros() == null) return null;
+            var miembro = simbolo.miembros().buscarLocal(nombre);
+            if (miembro.isPresent()) return miembro.get();
+        }
+        return null;
     }
 
     private void error(ParserRuleContext ctx, String mensaje) {
@@ -41,7 +87,9 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         return (a.base() == Tipo.FLOAT || b.base() == Tipo.FLOAT) ? TipoDato.FLOAT : TipoDato.INTEGER;
     }
     private void declarar(ParserRuleContext ctx, Simbolo simbolo) {
+        ambitos.put(ctx, actual);
         if (!actual.declarar(simbolo)) error(ctx, "El identificador '" + simbolo.nombre() + "' ya fue declarado en este ambito");
+        else referencias.put(ctx, new InformacionSemantica.Referencia(actual, simbolo.nombre()));
     }
     private TipoDato tipo(CompiscriptParser.TypeContext ctx) {
         if (ctx == null) return TipoDato.UNKNOWN;
@@ -59,10 +107,12 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
 
     @Override public TipoDato visitBlock(CompiscriptParser.BlockContext ctx) {
         Ambito anterior = actual; actual = new Ambito("bloque", anterior);
+        ambitos.put(ctx, actual);
         visitarSentencias(ctx.statement());
         actual = anterior; return TipoDato.VOID;
     }
     private void visitarBloqueSinNuevoAmbito(CompiscriptParser.BlockContext ctx) {
+        ambitos.put(ctx, actual); tipos.put(ctx, TipoDato.VOID);
         visitarSentencias(ctx.statement());
     }
     /** Visita una lista de sentencias y marca como codigo muerto todo lo que venga
@@ -78,7 +128,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitVariableDeclaration(CompiscriptParser.VariableDeclarationContext ctx) {
         TipoDato declarado = tipoAnotado(ctx.typeAnnotation());
         TipoDato valor = ctx.initializer() == null ? TipoDato.UNKNOWN : visit(ctx.initializer().expression());
-        if (declarado != TipoDato.UNKNOWN && valor != TipoDato.UNKNOWN && !declarado.compatibleCon(valor))
+        if (declarado != TipoDato.UNKNOWN && valor != TipoDato.UNKNOWN && !hayError(valor) && !compatible(declarado, valor))
             error(ctx, "No se puede inicializar " + declarado + " con " + valor);
         if (declarado == TipoDato.UNKNOWN) declarado = valor;
         declarar(ctx, new Simbolo(ctx.Identifier().getText(), declarado,
@@ -87,36 +137,67 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     }
     @Override public TipoDato visitConstantDeclaration(CompiscriptParser.ConstantDeclarationContext ctx) {
         TipoDato declarado = tipoAnotado(ctx.typeAnnotation()); TipoDato valor = visit(ctx.expression());
-        if (declarado != TipoDato.UNKNOWN && !declarado.compatibleCon(valor))
+        if (declarado != TipoDato.UNKNOWN && !hayError(valor) && !compatible(declarado, valor))
             error(ctx, "No se puede inicializar " + declarado + " con " + valor);
         if (declarado == TipoDato.UNKNOWN) declarado = valor;
-        declarar(ctx, new Simbolo(ctx.Identifier().getText(), declarado,
-                claseActual != null && funcionActual == null ? CategoriaSimbolo.ATRIBUTO : CategoriaSimbolo.CONSTANTE, actual));
+        Simbolo constante = new Simbolo(ctx.Identifier().getText(), declarado,
+                claseActual != null && funcionActual == null ? CategoriaSimbolo.ATRIBUTO : CategoriaSimbolo.CONSTANTE, actual);
+        declarar(ctx, constante);
+        if (constante.categoria() == CategoriaSimbolo.ATRIBUTO) esConstante.add(constante);
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitAssignment(CompiscriptParser.AssignmentContext ctx) {
         if (ctx.expression().size() == 1)
             return asignar(ctx, ctx.Identifier().getText(), visit(ctx.expression(0)));
-        // La alternativa de propiedad se valida al resolver la expresion receptora.
+        // expression '.' Identifier '=' expression
         TipoDato receptor = visit(ctx.expression(0));
-        if (receptor.base() != Tipo.CLASS) error(ctx, "Solo se pueden asignar propiedades de objetos");
-        return visit(ctx.expression(ctx.expression().size() - 1));
+        TipoDato valor = visit(ctx.expression(ctx.expression().size() - 1));
+        asignarPropiedad(ctx, receptor, ctx.Identifier().getText(), valor);
+        return valor;
+    }
+    private void asignarPropiedad(ParserRuleContext ctx, TipoDato receptor, String nombre, TipoDato valor) {
+        if (hayError(receptor, valor)) return;
+        if (receptor.base() != Tipo.CLASS) { error(ctx, "Solo se pueden asignar propiedades de objetos"); return; }
+        Simbolo miembro = buscarMiembro(receptor.nombreClase(), nombre);
+        if (miembro == null) { error(ctx, "La clase '" + receptor.nombreClase() + "' no contiene '" + nombre + "'"); return; }
+        if (miembro.categoria() == CategoriaSimbolo.METODO) { error(ctx, "No se puede asignar al metodo '" + nombre + "'"); return; }
+        if (miembro.categoria() == CategoriaSimbolo.CONSTANTE
+                || (miembro.categoria() == CategoriaSimbolo.ATRIBUTO && esConstante.contains(miembro))) {
+            error(ctx, "No se puede reasignar la constante '" + nombre + "'"); return; }
+        if (!compatible(miembro.tipo(), valor)) error(ctx, "No se puede asignar " + valor + " a " + miembro.tipo());
     }
 
     @Override public TipoDato visitAssignExpr(CompiscriptParser.AssignExprContext ctx) {
         String nombre = ctx.lhs.getText();
         if (ctx.lhs.suffixOp().isEmpty() && ctx.lhs.primaryAtom() instanceof CompiscriptParser.IdentifierExprContext)
             return asignar(ctx, nombre, visit(ctx.assignmentExpr()));
-        visit(ctx.lhs); return visit(ctx.assignmentExpr());
+        TipoDato destino = visit(ctx.lhs);
+        TipoDato valor = visit(ctx.assignmentExpr());
+        if (hayError(destino, valor)) return TipoDato.ERROR;
+        var ultimo = ctx.lhs.suffixOp(ctx.lhs.suffixOp().size() - 1);
+        if (ultimo instanceof CompiscriptParser.CallExprContext || ctx.lhs.suffixOp().isEmpty()) {
+            error(ctx, "La expresion de la izquierda no es asignable"); return TipoDato.ERROR; }
+        if (ultimo instanceof CompiscriptParser.PropertyAccessExprContext prop) {
+            TipoDato receptor = tipoDelPrefijo(ctx.lhs);
+            asignarPropiedad(ctx, receptor, prop.Identifier().getText(), valor);
+        } else if (!compatible(destino, valor)) error(ctx, "No se puede asignar " + valor + " a " + destino);
+        return destino;
+    }
+    /** Tipo del receptor de la ultima propiedad de una cadena (tipos intermedios guardados al visitarla). */
+    private TipoDato tipoDelPrefijo(CompiscriptParser.LeftHandSideContext ctx) {
+        int n = ctx.suffixOp().size();
+        return n >= 2 ? tipos.getOrDefault(ctx.suffixOp(n - 2), TipoDato.ERROR)
+                : tipos.getOrDefault(ctx.primaryAtom(), TipoDato.ERROR);
     }
 
     private TipoDato asignar(ParserRuleContext ctx, String nombre, TipoDato valor) {
         Optional<Simbolo> encontrado = actual.buscar(nombre);
         if (encontrado.isEmpty()) { error(ctx, "El identificador '" + nombre + "' no esta declarado"); return TipoDato.ERROR; }
         Simbolo simbolo = encontrado.get();
+        referencias.put(ctx, new InformacionSemantica.Referencia(simbolo.ambito(), simbolo.nombre()));
         if (simbolo.categoria() == CategoriaSimbolo.CONSTANTE) error(ctx, "No se puede reasignar la constante '" + nombre + "'");
-        else if (!simbolo.tipo().compatibleCon(valor)) error(ctx, "No se puede asignar " + valor + " a " + simbolo.tipo());
+        else if (!hayError(valor) && !compatible(simbolo.tipo(), valor)) error(ctx, "No se puede asignar " + valor + " a " + simbolo.tipo());
         return simbolo.tipo();
     }
 
@@ -129,20 +210,30 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         Ambito cuerpo = new Ambito("funcion " + ctx.Identifier().getText(), actual);
         Simbolo funcion = new Simbolo(ctx.Identifier().getText(), retorno, cat, actual, params, cuerpo);
         declarar(ctx, funcion); // antes del cuerpo: habilita recursion
+        if (claseActual != null && padres.containsKey(claseActual.nombre()) && !ctx.Identifier().getText().equals("constructor")) {
+            Simbolo heredado = buscarMiembro(padres.get(claseActual.nombre()), ctx.Identifier().getText());
+            if (heredado != null && (heredado.categoria() != CategoriaSimbolo.METODO
+                    || !heredado.parametros().equals(params) || !heredado.tipo().equals(retorno)))
+                error(ctx, "El metodo '" + ctx.Identifier().getText() + "' no coincide con la firma heredada");
+        }
         Ambito previo = actual; Simbolo previaFuncion = funcionActual;
+        boolean buclePrevio = enBucle;
+        int switchPrevio = profundidadSwitch;
+        enBucle = false; profundidadSwitch = 0;
         actual = cuerpo; funcionActual = funcion;
         if (ctx.parameters() != null) for (int i = 0; i < ctx.parameters().parameter().size(); i++) {
             var p = ctx.parameters().parameter(i);
             declarar(p, new Simbolo(p.Identifier().getText(), params.get(i), CategoriaSimbolo.PARAMETRO, actual));
         }
         visitarBloqueSinNuevoAmbito(ctx.block()); actual = previo; funcionActual = previaFuncion;
+        enBucle = buclePrevio; profundidadSwitch = switchPrevio;
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitReturnStatement(CompiscriptParser.ReturnStatementContext ctx) {
         if (funcionActual == null) { error(ctx, "return solo puede utilizarse dentro de una funcion"); return TipoDato.ERROR; }
         TipoDato valor = ctx.expression() == null ? TipoDato.VOID : visit(ctx.expression());
-        if (!funcionActual.tipo().compatibleCon(valor)) error(ctx, "El retorno debe ser " + funcionActual.tipo() + " pero se obtuvo " + valor);
+        if (!hayError(valor) && !compatible(funcionActual.tipo(), valor)) error(ctx, "El retorno debe ser " + funcionActual.tipo() + " pero se obtuvo " + valor);
         return valor;
     }
 
@@ -154,6 +245,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         TipoDato resultado = visit(ctx.logicalAndExpr(0));
         for (int i = 1; i < ctx.logicalAndExpr().size(); i++) {
             TipoDato derecho = visit(ctx.logicalAndExpr(i));
+            if (hayError(resultado, derecho)) return TipoDato.ERROR;
             if (resultado.base() != Tipo.BOOLEAN || derecho.base() != Tipo.BOOLEAN)
                 return errorTipo(ctx, "Los operandos de '||' deben ser boolean, se obtuvo " + resultado + " y " + derecho);
             resultado = TipoDato.BOOLEAN;
@@ -165,6 +257,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         TipoDato resultado = visit(ctx.equalityExpr(0));
         for (int i = 1; i < ctx.equalityExpr().size(); i++) {
             TipoDato derecho = visit(ctx.equalityExpr(i));
+            if (hayError(resultado, derecho)) return TipoDato.ERROR;
             if (resultado.base() != Tipo.BOOLEAN || derecho.base() != Tipo.BOOLEAN)
                 return errorTipo(ctx, "Los operandos de '&&' deben ser boolean, se obtuvo " + resultado + " y " + derecho);
             resultado = TipoDato.BOOLEAN;
@@ -177,7 +270,8 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         if (ctx.relationalExpr().size() == 1) return izquierdo;
         for (int i = 1; i < ctx.relationalExpr().size(); i++) {
             TipoDato derecho = visit(ctx.relationalExpr(i));
-            if (!izquierdo.compatibleCon(derecho)) return errorTipo(ctx, "No se puede comparar " + izquierdo + " con " + derecho);
+            if (hayError(izquierdo, derecho)) return TipoDato.ERROR;
+            if (!(compatible(izquierdo, derecho) || compatible(derecho, izquierdo))) return errorTipo(ctx, "No se puede comparar " + izquierdo + " con " + derecho);
             izquierdo = derecho;
         }
         return TipoDato.BOOLEAN;
@@ -188,6 +282,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         if (ctx.additiveExpr().size() == 1) return izquierdo;
         for (int i = 1; i < ctx.additiveExpr().size(); i++) {
             TipoDato derecho = visit(ctx.additiveExpr(i));
+            if (hayError(izquierdo, derecho)) return TipoDato.ERROR;
             if (!esNumerico(izquierdo) || !esNumerico(derecho))
                 return errorTipo(ctx, "Los operandos de una comparacion relacional deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
             izquierdo = derecho;
@@ -199,6 +294,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         TipoDato izquierdo = visit(ctx.multiplicativeExpr(0));
         for (int i = 1; i < ctx.multiplicativeExpr().size(); i++) {
             TipoDato derecho = visit(ctx.multiplicativeExpr(i));
+            if (hayError(izquierdo, derecho)) return TipoDato.ERROR;
             if (!esNumerico(izquierdo) || !esNumerico(derecho))
                 return errorTipo(ctx, "Los operandos de '+'/'-' deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
             izquierdo = promocionNumerica(izquierdo, derecho);
@@ -210,6 +306,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         TipoDato izquierdo = visit(ctx.unaryExpr(0));
         for (int i = 1; i < ctx.unaryExpr().size(); i++) {
             TipoDato derecho = visit(ctx.unaryExpr(i));
+            if (hayError(izquierdo, derecho)) return TipoDato.ERROR;
             if (!esNumerico(izquierdo) || !esNumerico(derecho))
                 return errorTipo(ctx, "Los operandos de '*'/'/'/'%' deben ser integer o float, se obtuvo " + izquierdo + " y " + derecho);
             izquierdo = promocionNumerica(izquierdo, derecho);
@@ -221,6 +318,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         if (ctx.getChildCount() == 2) {
             String operador = ctx.getChild(0).getText();
             TipoDato operando = visit(ctx.unaryExpr());
+            if (hayError(operando)) return TipoDato.ERROR;
             if ("!".equals(operador))
                 return operando.base() == Tipo.BOOLEAN ? TipoDato.BOOLEAN : errorTipo(ctx, "El operador '!' requiere un operando boolean, se obtuvo " + operando);
             if ("-".equals(operador))
@@ -232,10 +330,11 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitTernaryExpr(CompiscriptParser.TernaryExprContext ctx) {
         TipoDato condicion = visit(ctx.logicalOrExpr());
         if (ctx.expression().isEmpty()) return condicion;
-        if (condicion.base() != Tipo.BOOLEAN) error(ctx, "La condicion del operador ternario debe ser boolean, se obtuvo " + condicion);
+        if (condicion.base() != Tipo.BOOLEAN && !hayError(condicion)) error(ctx, "La condicion del operador ternario debe ser boolean, se obtuvo " + condicion);
         TipoDato siVerdadero = visit(ctx.expression(0));
         TipoDato siFalso = visit(ctx.expression(1));
-        if (!siVerdadero.compatibleCon(siFalso))
+        if (hayError(siVerdadero, siFalso)) return TipoDato.ERROR;
+        if (!(compatible(siVerdadero, siFalso) || compatible(siFalso, siVerdadero)))
             return errorTipo(ctx, "Las dos ramas del operador ternario deben ser del mismo tipo, se obtuvo " + siVerdadero + " y " + siFalso);
         return siVerdadero;
     }
@@ -246,7 +345,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
 
     private void validarCondicionBooleana(ParserRuleContext etiqueta, CompiscriptParser.ExpressionContext condExpr, String construccion) {
         TipoDato condicion = visit(condExpr);
-        if (condicion.base() != Tipo.BOOLEAN) error(etiqueta, "La condicion del " + construccion + " debe ser boolean, se obtuvo " + condicion);
+        if (condicion.base() != Tipo.BOOLEAN && !hayError(condicion)) error(etiqueta, "La condicion del " + construccion + " debe ser boolean, se obtuvo " + condicion);
     }
 
     @Override public TipoDato visitIfStatement(CompiscriptParser.IfStatementContext ctx) {
@@ -307,6 +406,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         TipoDato elemento;
         if (iterable.base() == Tipo.ARRAY) {
             elemento = iterable.elemento();
+        } else if (hayError(iterable)) { elemento = TipoDato.ERROR;
         } else {
             error(ctx, "foreach requiere una expresion de tipo arreglo, se obtuvo " + iterable);
             elemento = TipoDato.ERROR;
@@ -323,19 +423,22 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitSwitchStatement(CompiscriptParser.SwitchStatementContext ctx) {
         TipoDato tipoSwitch = visit(ctx.expression());
         Ambito anterior = actual; actual = new Ambito("switch", anterior);
+        profundidadSwitch++;
+        try {
         for (var c : ctx.switchCase()) {
             TipoDato tipoCase = visit(c.expression());
-            if (!tipoSwitch.compatibleCon(tipoCase))
+            if (!(compatible(tipoSwitch, tipoCase) || compatible(tipoCase, tipoSwitch)))
                 error(c, "El tipo del case (" + tipoCase + ") no coincide con el tipo del switch (" + tipoSwitch + ")");
             visitarSentencias(c.statement());
         }
         if (ctx.defaultCase() != null) visitarSentencias(ctx.defaultCase().statement());
-        actual = anterior;
+        } finally { profundidadSwitch--; actual = anterior; }
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitBreakStatement(CompiscriptParser.BreakStatementContext ctx) {
-        if (!enBucle) error(ctx, "'break' solo puede utilizarse dentro de un bucle");
+        if (!enBucle && profundidadSwitch == 0)
+            error(ctx, "'break' solo puede utilizarse dentro de un bucle o switch");
         return TipoDato.VOID;
     }
 
@@ -347,23 +450,37 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitTryCatchStatement(CompiscriptParser.TryCatchStatementContext ctx) {
         visit(ctx.block(0));
         Ambito anterior = actual; actual = new Ambito("catch", anterior);
-        declarar(ctx, new Simbolo(ctx.Identifier().getText(), TipoDato.UNKNOWN, CategoriaSimbolo.VARIABLE, actual));
+        declarar(ctx, new Simbolo(ctx.Identifier().getText(), TipoDato.STRING, CategoriaSimbolo.VARIABLE, actual));
         visit(ctx.block(1));
         actual = anterior;
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitClassDeclaration(CompiscriptParser.ClassDeclarationContext ctx) {
-        String nombre = ctx.Identifier(0).getText(); Ambito miembros = new Ambito("clase " + nombre, actual);
+        String nombre = ctx.Identifier(0).getText();
+        Ambito padreAmbito = actual;
+        if (ctx.Identifier().size() > 1) {
+            String base = ctx.Identifier(1).getText();
+            Simbolo sup = actual.buscar(base).orElse(null);
+            if (base.equals(nombre)) error(ctx, "La clase '" + nombre + "' no puede heredar de si misma");
+            else if (sup == null || sup.categoria() != CategoriaSimbolo.CLASE)
+                error(ctx, "La superclase '" + base + "' no esta declarada");
+            else { padres.put(nombre, base); padreAmbito = sup.miembros(); }
+        }
+        Ambito miembros = new Ambito("clase " + nombre, padreAmbito);
         Simbolo clase = new Simbolo(nombre, TipoDato.clase(nombre), CategoriaSimbolo.CLASE, actual, List.of(), miembros);
         declarar(ctx, clase);
         Ambito previo = actual; Simbolo previaClase = claseActual; actual = miembros; claseActual = clase;
-        for (var m : ctx.classMember()) visit(m); actual = previo; claseActual = previaClase;
+        for (var m : ctx.classMember()) visit(m);
+        actual = previo; claseActual = previaClase;
         return TipoDato.VOID;
     }
 
     @Override public TipoDato visitIdentifierExpr(CompiscriptParser.IdentifierExprContext ctx) {
-        return actual.buscar(ctx.Identifier().getText()).map(Simbolo::tipo).orElseGet(() -> {
+        return actual.buscar(ctx.Identifier().getText()).map(simbolo -> {
+            referencias.put(ctx, new InformacionSemantica.Referencia(simbolo.ambito(), simbolo.nombre()));
+            return simbolo.tipo();
+        }).orElseGet(() -> {
             error(ctx, "El identificador '" + ctx.Identifier().getText() + "' no esta declarado"); return TipoDato.ERROR;
         });
     }
@@ -376,7 +493,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         if (encontrado.isEmpty() || encontrado.get().categoria() != CategoriaSimbolo.CLASE) {
             error(ctx, "La clase '" + nombre + "' no esta declarada"); return TipoDato.ERROR;
         }
-        Simbolo clase = encontrado.get(); Optional<Simbolo> ctor = clase.miembros().buscarLocal("constructor");
+        Simbolo clase = encontrado.get(); Optional<Simbolo> ctor = Optional.ofNullable(buscarMiembro(nombre, "constructor"));
         List<CompiscriptParser.ExpressionContext> args = ctx.arguments() == null ? List.of() : ctx.arguments().expression();
         if (ctor.isPresent()) validarArgumentos(ctx, ctor.get(), args);
         else if (!args.isEmpty()) error(ctx, "La clase '" + nombre + "' no tiene constructor");
@@ -389,13 +506,16 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
                 ? actual.buscar(id.Identifier().getText()).orElse(null) : null;
         for (var sufijo : ctx.suffixOp()) {
             if (sufijo instanceof CompiscriptParser.PropertyAccessExprContext propiedad) {
-                if (corriente.base() != Tipo.CLASS) { error(propiedad, "Solo los objetos tienen miembros"); corriente = TipoDato.ERROR; continue; }
-                Simbolo clase = global.buscar(corriente.nombreClase()).orElse(null);
-                invocable = clase == null ? null : clase.miembros().buscarLocal(propiedad.Identifier().getText()).orElse(null);
+                if (corriente.base() == Tipo.ARRAY && propiedad.Identifier().getText().equals("length")) {
+                    corriente = TipoDato.INTEGER; invocable = null; tipos.put(sufijo, corriente); continue; }
+                if (hayError(corriente)) { tipos.put(sufijo, TipoDato.ERROR); invocable = null; continue; }
+                if (corriente.base() != Tipo.CLASS) { error(propiedad, "Solo los objetos tienen miembros"); corriente = TipoDato.ERROR; tipos.put(sufijo, corriente); continue; }
+                invocable = buscarMiembro(corriente.nombreClase(), propiedad.Identifier().getText());
                 if (invocable == null) { error(propiedad, "La clase '" + corriente.nombreClase() + "' no contiene '" + propiedad.Identifier().getText() + "'"); corriente = TipoDato.ERROR; }
                 else corriente = invocable.tipo();
             } else if (sufijo instanceof CompiscriptParser.CallExprContext llamada) {
-                if (invocable == null || (invocable.categoria() != CategoriaSimbolo.FUNCION && invocable.categoria() != CategoriaSimbolo.METODO)) {
+                if (hayError(corriente) && invocable == null) { corriente = TipoDato.ERROR; }
+                else if (invocable == null || (invocable.categoria() != CategoriaSimbolo.FUNCION && invocable.categoria() != CategoriaSimbolo.METODO)) {
                     error(llamada, "La expresion no es una funcion o metodo"); corriente = TipoDato.ERROR;
                 } else {
                     var args = llamada.arguments() == null ? List.<CompiscriptParser.ExpressionContext>of() : llamada.arguments().expression();
@@ -404,10 +524,16 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
                 invocable = null;
             } else if (sufijo instanceof CompiscriptParser.IndexExprContext indice) {
                 TipoDato it = visit(indice.expression());
-                if (corriente.base() != Tipo.ARRAY || it.base() != Tipo.INTEGER) { error(indice, "Acceso de arreglo invalido"); corriente = TipoDato.ERROR; }
+                if (hayError(corriente, it)) corriente = TipoDato.ERROR;
+                else if (corriente.base() != Tipo.ARRAY || it.base() != Tipo.INTEGER) { error(indice, "Acceso de arreglo invalido"); corriente = TipoDato.ERROR; }
                 else corriente = corriente.elemento();
                 invocable = null;
             }
+            tipos.put(sufijo, corriente);
+        }
+        if (!ctx.suffixOp().isEmpty() && invocable != null && invocable.categoria() == CategoriaSimbolo.METODO
+                && ctx.suffixOp(ctx.suffixOp().size() - 1) instanceof CompiscriptParser.PropertyAccessExprContext) {
+            error(ctx, "'" + invocable.nombre() + "' es un metodo: debe invocarse"); corriente = TipoDato.ERROR;
         }
         if (ctx.suffixOp().isEmpty() && invocable != null
                 && (invocable.categoria() == CategoriaSimbolo.FUNCION
@@ -424,7 +550,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
         }
         for (int i = 0; i < args.size(); i++) {
             TipoDato recibido = visit(args.get(i));
-            if (i < funcion.parametros().size() && !funcion.parametros().get(i).compatibleCon(recibido))
+            if (i < funcion.parametros().size() && !hayError(recibido) && !compatible(funcion.parametros().get(i), recibido))
                 error(args.get(i), "El argumento " + (i + 1) + " debe ser " + funcion.parametros().get(i) + " pero se obtuvo " + recibido);
         }
     }
@@ -432,7 +558,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitLiteralExpr(CompiscriptParser.LiteralExprContext ctx) {
         if (ctx.arrayLiteral() != null) {
             var xs = ctx.arrayLiteral().expression(); if (xs.isEmpty()) return TipoDato.arreglo(TipoDato.UNKNOWN);
-            TipoDato e = visit(xs.get(0)); for (int i=1;i<xs.size();i++) if (!e.compatibleCon(visit(xs.get(i)))) return TipoDato.ERROR;
+            TipoDato e = visit(xs.get(0)); for (int i=1;i<xs.size();i++) { TipoDato otro = visit(xs.get(i)); if (!(compatible(e, otro) || compatible(otro, e))) return errorTipo(ctx, "Los elementos del arreglo deben tener el mismo tipo, se obtuvo " + e + " y " + otro); }
             return TipoDato.arreglo(e);
         }
         String s=ctx.getText(); if (s.equals("true")||s.equals("false")) return TipoDato.BOOLEAN;
@@ -442,7 +568,7 @@ public final class AnalizadorSemantico extends CompiscriptBaseVisitor<TipoDato> 
     @Override public TipoDato visitChildren(org.antlr.v4.runtime.tree.RuleNode node) {
         TipoDato r = TipoDato.UNKNOWN;
         for (int i=0;i<node.getChildCount();i++) if (node.getChild(i) instanceof org.antlr.v4.runtime.tree.RuleNode n) {
-            TipoDato x=n.accept(this); if (x!=null && x!=TipoDato.UNKNOWN) r=x;
+            TipoDato x=visit(n); if (x!=null && x!=TipoDato.UNKNOWN) r=x;
         }
         return r;
     }

@@ -2,6 +2,15 @@
 
 ## Vision general
 
+Para el Proyecto 2, el punto de entrada público es
+`compiler.Compilador.compilar(codigo)`: lexer/parser → árbol validado →
+`AnalizadorSemantico.analizar(arbol)` → generación TAC → `ResultadoCompilacion`.
+El árbol se construye una sola vez y cualquier error bloquea la salida TAC.
+El resultado expone diagnósticos, símbolos, instrucciones, firmas, layouts y
+enlaces de símbolos. Ver `INTEGRACION_PERSONA_3.md` para el contrato de consumo.
+
+El siguiente esquema describe la etapa semántica dentro de ese pipeline:
+
 ```
 Codigo fuente (.cps)
         |
@@ -18,7 +27,8 @@ Codigo fuente (.cps)
   AnalisisSemantico { ResultadoSemantico, Ambito global }
 ```
 
-`AnalizadorSemantico` es el unico punto de entrada del analisis (`AnalizadorSemantico.analizar(codigo)`).
+`AnalizadorSemantico` mantiene la API anterior (`AnalizadorSemantico.analizar(codigo)`)
+y agrega `analizar(arbol)` para reutilizar el parser del pipeline.
 Recorre el arbol una sola vez, en preorden, construyendo la tabla de simbolos y validando
 las reglas semanticas al mismo tiempo que resuelve el tipo de cada expresion.
 
@@ -28,6 +38,15 @@ las reglas semanticas al mismo tiempo que resuelve el tipo de cada expresion.
   `CompiscriptBaseVisitor`. Se regeneran en cada `mvn compile` a partir de `Compiscript.g4`.
 - **`semantic`**: todo el analizador semantico.
 - **`ide`**: la interfaz grafica (`CompiscriptIDE`), que solo consume la API publica de `semantic`.
+- **`tac`**: instrucciones, visitors, etiquetas, temporales, descriptores de funciones,
+  layouts de activación, pila de invocaciones y enlaces de almacenamiento.
+- **`compiler`**: API de compilación, resultado de salida, diagnósticos y CLI de demostración.
+
+`InformacionSemantica` mantiene mapas de nodo a tipo/ámbito/referencia. Las referencias
+identifican declaraciones por instancia de ámbito y nombre. `EnlaceSimboloTAC`
+asocia esa identidad con un operando y, para locales, función y offset de marco.
+Los registros reservan tres slots de cabecera y almacenamiento independiente por
+invocación. Los offsets son lógicos, no direcciones en bytes. Ver `TAC.md`.
 
 ## Clases principales de `semantic`
 
@@ -66,3 +85,16 @@ en esa misma lista como inalcanzable.
 
 Ver `README.md` para compilar, correr las pruebas y levantar el IDE
 (`mvn compile exec:java -Dexec.mainClass="ide.CompiscriptIDE"`).
+
+
+## Pipeline de la segunda fase
+
+```text
+Compilador.compilar(fuente)
+  Lexer/Parser (ANTLR) ─► AnalizadorSemantico ─► GeneradorSentenciasTAC + GeneradorExpresionesTAC ─► AnotadorSimbolos
+        errores ─────────────┴─ cualquier error detiene la generación de TAC
+```
+
+* `tac.GeneradorTAC`: emisor compartido, temporales, etiquetas, registros de activación, enlaces de símbolos y clases.
+* `tac.DescriptorClase`: layout de objetos y tabla de métodos. `tac.AnotadorSimbolos`: direcciones y etiquetas en `Simbolo`.
+* `ide.CompiscriptIDE` consume únicamente `Compilador.compilar` y muestra el resultado en `PanelesCompilacion`, `DiagramaArbol` y `TablaSimbolosPanel`.

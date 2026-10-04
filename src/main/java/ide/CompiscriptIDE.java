@@ -1,62 +1,43 @@
 package ide;
 
 import antlr.CompiscriptLexer;
-import antlr.CompiscriptParser;
+import compiler.Compilador;
+import compiler.ResultadoCompilacion;
 import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode;
-import org.antlr.v4.runtime.tree.Trees;
-import semantic.AnalisisSemantico;
-import semantic.AnalizadorSemantico;
-import semantic.Ambito;
-import semantic.ResultadoSemantico;
-import semantic.Simbolo;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
-import javax.swing.JTree;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.DefaultTreeCellRenderer;
-import javax.swing.tree.TreeNode;
-import javax.swing.tree.TreePath;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * IDE minimo para Compiscript: permite escribir codigo, compilarlo (analisis lexico,
- * sintactico y semantico) y ver los resultados en tres vistas: errores, arbol
- * sintactico (representacion visual) y tabla de simbolos.
- *
- * Para ejecutarlo: mvn compile exec:java -Dexec.mainClass="ide.CompiscriptIDE"
- * (o directamente el metodo main desde el IDE de Java).
- */
 public final class CompiscriptIDE extends JFrame {
 
     private static final Color FONDO = new Color(15, 23, 42);
@@ -69,26 +50,187 @@ public final class CompiscriptIDE extends JFrame {
     private static final Color ROJO = new Color(248, 113, 113);
 
     private final JTextArea editor = new JTextArea();
-    private final JTextArea salida = new JTextArea();
-    private final JTree arbolSintactico = new JTree(new DefaultMutableTreeNode("(sin compilar)"));
-    private final JTree tablaSimbolos = new JTree(new DefaultMutableTreeNode("(sin compilar)"));
-    private final JLabel estado = new JLabel(" Listo");
+
+    private final PanelesCompilacion.Errores errores =
+            new PanelesCompilacion.Errores(this::irALinea);
+
+    private final PanelesCompilacion.CodigoIntermedio codigoIntermedio =
+            new PanelesCompilacion.CodigoIntermedio();
+
+    private final PanelesCompilacion.Estructuras estructuras =
+            new PanelesCompilacion.Estructuras();
+
+    private final JTabbedPane pestanas = new JTabbedPane();
+
+    private final DiagramaArbol arbolSintactico =
+            new DiagramaArbol();
+
+    private final TablaSimbolosPanel tablaSimbolos =
+            new TablaSimbolosPanel();
+
+    private final JLabel estado =
+            new JLabel(" Listo");
+
+    private final JPanel panelArbol =
+            new JPanel(new BorderLayout());
+
+    private final JLabel resumenArbol =
+            new JLabel("Compile un programa para generar el árbol sintáctico.");
+
+    private final JButton botonVerArbol =
+            new JButton("Ver árbol completo");
+
+    private java.io.File archivoActual;
+
+    private JDialog ventanaArbol;
+
+    private boolean arbolDisponible;
 
     public CompiscriptIDE() {
         super("Compiscript IDE");
+
+        UIManager.put(
+                "TabbedPane.selected",
+                AZUL
+        );
+
+        UIManager.put(
+                "TabbedPane.contentAreaColor",
+                PANEL
+        );
+
+        UIManager.put(
+                "TabbedPane.borderHightlightColor",
+                BORDE
+        );
+
+        UIManager.put(
+                "TabbedPane.darkShadow",
+                BORDE
+        );
+
+        UIManager.put(
+                "TabbedPane.light",
+                PANEL
+        );
+
+        UIManager.put(
+                "TabbedPane.highlight",
+                BORDE
+        );
+
+        UIManager.put(
+                "TabbedPane.shadow",
+                BORDE
+        );
+
+        UIManager.put(
+                "TabbedPane.focus",
+                AZUL
+        );
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1280, 800);
         setMinimumSize(new Dimension(900, 600));
         setLocationRelativeTo(null);
+
         construirInterfaz();
     }
 
     private void construirInterfaz() {
-        JPanel contenido = new JPanel(new BorderLayout(0, 12));
-        contenido.setBackground(FONDO);
-        contenido.setBorder(BorderFactory.createEmptyBorder(14, 16, 16, 16));
+        JPanel contenido =
+                new JPanel(
+                        new BorderLayout(0, 12)
+                );
 
-        editor.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 15));
+        contenido.setBackground(FONDO);
+
+        contenido.setBorder(
+                BorderFactory.createEmptyBorder(
+                        14,
+                        16,
+                        16,
+                        16
+                )
+        );
+
+        configurarEditor();
+
+        JScrollPane panelEditor =
+                new JScrollPane(editor);
+
+        panelEditor.setBorder(
+                BorderFactory.createLineBorder(
+                        BORDE
+                )
+        );
+
+        panelEditor
+                .getViewport()
+                .setBackground(FONDO);
+
+        panelEditor.setRowHeaderView(
+                crearNumerosLinea()
+        );
+
+        JButton botonCompilar =
+                crearBotonCompilar();
+
+        configurarAtajoCompilar();
+
+        configurarPanelArbol();
+
+        configurarPestanas();
+
+        JSplitPane split =
+                new JSplitPane(
+                        JSplitPane.HORIZONTAL_SPLIT,
+                        panelEditor,
+                        pestanas
+                );
+
+        split.setResizeWeight(0.58);
+        split.setDividerSize(7);
+        split.setBorder(null);
+        split.setBackground(FONDO);
+
+        JPanel superior =
+                crearBarraSuperior(
+                        botonCompilar
+                );
+
+        setLayout(
+                new BorderLayout()
+        );
+
+        getContentPane()
+                .setBackground(FONDO);
+
+        contenido.add(
+                superior,
+                BorderLayout.NORTH
+        );
+
+        contenido.add(
+                split,
+                BorderLayout.CENTER
+        );
+
+        add(
+                contenido,
+                BorderLayout.CENTER
+        );
+    }
+
+    private void configurarEditor() {
+        editor.setFont(
+                new Font(
+                        Font.MONOSPACED,
+                        Font.PLAIN,
+                        15
+                )
+        );
+
         editor.setTabSize(2);
         editor.setText(EJEMPLO);
         editor.setBackground(FONDO);
@@ -96,239 +238,1027 @@ public final class CompiscriptIDE extends JFrame {
         editor.setCaretColor(TEXTO);
         editor.setSelectionColor(AZUL);
         editor.setSelectedTextColor(Color.WHITE);
-        editor.setMargin(new Insets(10, 10, 10, 10));
-        JScrollPane panelEditor = new JScrollPane(editor);
-        panelEditor.setBorder(BorderFactory.createLineBorder(BORDE));
-        panelEditor.getViewport().setBackground(FONDO);
-        panelEditor.setRowHeaderView(crearNumerosLinea());
 
-        JButton botonCompilar = new JButton("▶  Compilar");
-        botonCompilar.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
-        botonCompilar.setForeground(Color.WHITE);
-        botonCompilar.setBackground(AZUL);
-        botonCompilar.setOpaque(true);
-        botonCompilar.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
-        botonCompilar.setFocusPainted(false);
-        botonCompilar.setToolTipText("Compilar (Ctrl+Enter)");
-        botonCompilar.addActionListener(this::compilar);
-        editor.getInputMap().put(KeyStroke.getKeyStroke("control ENTER"), "compilar");
-        editor.getActionMap().put("compilar", new AbstractAction() {
-            @Override public void actionPerformed(ActionEvent e) { compilar(e); }
-        });
+        editor.setMargin(
+                new Insets(
+                        10,
+                        10,
+                        10,
+                        10
+                )
+        );
+    }
 
-        salida.setEditable(false);
-        salida.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-        salida.setBackground(PANEL);
-        salida.setForeground(TEXTO);
-        salida.setMargin(new Insets(12, 12, 12, 12));
-        JScrollPane panelSalida = new JScrollPane(salida);
-        estilizarScroll(panelSalida);
+    private JButton crearBotonCompilar() {
+        JButton boton =
+                new JButton("Compilar");
 
-        JScrollPane panelArbol = new JScrollPane(arbolSintactico);
-        JScrollPane panelTabla = new JScrollPane(tablaSimbolos);
-        estilizarArbol(arbolSintactico);
-        estilizarArbol(tablaSimbolos);
-        estilizarScroll(panelArbol);
-        estilizarScroll(panelTabla);
+        boton.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        13
+                )
+        );
 
-        JTabbedPane pestanas = new JTabbedPane();
-        pestanas.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+        boton.setForeground(
+                Color.WHITE
+        );
+
+        boton.setBackground(
+                AZUL
+        );
+
+        boton.setOpaque(true);
+
+        boton.setBorder(
+                BorderFactory.createEmptyBorder(
+                        10,
+                        18,
+                        10,
+                        18
+                )
+        );
+
+        boton.setFocusPainted(false);
+
+        boton.setToolTipText(
+                "Compilar (Ctrl+Enter)"
+        );
+
+        boton.addActionListener(
+                this::compilar
+        );
+
+        return boton;
+    }
+
+    private void configurarAtajoCompilar() {
+        editor.getInputMap().put(
+                KeyStroke.getKeyStroke(
+                        "control ENTER"
+                ),
+                "compilar"
+        );
+
+        editor.getActionMap().put(
+                "compilar",
+                new AbstractAction() {
+                    @Override
+                    public void actionPerformed(
+                            ActionEvent e) {
+
+                        compilar(e);
+                    }
+                }
+        );
+    }
+
+    private void configurarPestanas() {
+        pestanas.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        13
+                )
+        );
+
+        pestanas.setTabLayoutPolicy(
+                JTabbedPane.SCROLL_TAB_LAYOUT
+        );
+
         pestanas.setBackground(PANEL);
         pestanas.setForeground(TEXTO);
-        pestanas.setBorder(BorderFactory.createLineBorder(BORDE));
-        pestanas.addTab("Errores", panelSalida);
-        pestanas.addTab("Árbol sintáctico", panelArbol);
-        pestanas.addTab("Tabla de símbolos", panelTabla);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelEditor, pestanas);
-        split.setResizeWeight(0.56);
-        split.setDividerSize(8);
-        split.setBorder(null);
-        split.setBackground(FONDO);
+        pestanas.setBorder(
+                BorderFactory.createLineBorder(
+                        BORDE
+                )
+        );
 
-        JPanel superior = new JPanel(new BorderLayout(16, 0));
+        pestanas.addTab(
+                "Problemas",
+                errores
+        );
+
+        pestanas.addTab(
+                "TAC",
+                codigoIntermedio
+        );
+
+        pestanas.addTab(
+                "Árbol",
+                panelArbol
+        );
+
+        pestanas.addTab(
+                "Símbolos",
+                tablaSimbolos
+        );
+
+        pestanas.addTab(
+                "Runtime",
+                estructuras
+        );
+    }
+
+    private void configurarPanelArbol() {
+        panelArbol.setBackground(PANEL);
+
+        panelArbol.setBorder(
+                BorderFactory.createEmptyBorder(
+                        30,
+                        30,
+                        30,
+                        30
+                )
+        );
+
+        JPanel contenido =
+                new JPanel();
+
+        contenido.setLayout(
+                new BoxLayout(
+                        contenido,
+                        BoxLayout.Y_AXIS
+                )
+        );
+
+        contenido.setBackground(PANEL);
+
+        JLabel titulo =
+                new JLabel(
+                        "Árbol sintáctico"
+                );
+
+        titulo.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        22
+                )
+        );
+
+        titulo.setForeground(TEXTO);
+
+        titulo.setAlignmentX(
+                Component.CENTER_ALIGNMENT
+        );
+
+        JLabel descripcion =
+                new JLabel(
+                        "Visualización del árbol generado por ANTLR"
+                );
+
+        descripcion.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.PLAIN,
+                        13
+                )
+        );
+
+        descripcion.setForeground(
+                TEXTO_SUAVE
+        );
+
+        descripcion.setAlignmentX(
+                Component.CENTER_ALIGNMENT
+        );
+
+        resumenArbol.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.PLAIN,
+                        13
+                )
+        );
+
+        resumenArbol.setForeground(
+                TEXTO_SUAVE
+        );
+
+        resumenArbol.setAlignmentX(
+                Component.CENTER_ALIGNMENT
+        );
+
+        configurarBotonArbol();
+
+        contenido.add(
+                Box.createVerticalGlue()
+        );
+
+        contenido.add(titulo);
+
+        contenido.add(
+                Box.createVerticalStrut(8)
+        );
+
+        contenido.add(descripcion);
+
+        contenido.add(
+                Box.createVerticalStrut(18)
+        );
+
+        contenido.add(resumenArbol);
+
+        contenido.add(
+                Box.createVerticalStrut(24)
+        );
+
+        contenido.add(
+                botonVerArbol
+        );
+
+        contenido.add(
+                Box.createVerticalGlue()
+        );
+
+        panelArbol.add(
+                contenido,
+                BorderLayout.CENTER
+        );
+    }
+
+    private void configurarBotonArbol() {
+        botonVerArbol.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        14
+                )
+        );
+
+        botonVerArbol.setForeground(
+                Color.WHITE
+        );
+
+        botonVerArbol.setBackground(
+                AZUL
+        );
+
+        botonVerArbol.setOpaque(true);
+
+        botonVerArbol.setFocusPainted(
+                false
+        );
+
+        botonVerArbol.setBorder(
+                BorderFactory.createEmptyBorder(
+                        11,
+                        20,
+                        11,
+                        20
+                )
+        );
+
+        botonVerArbol.setAlignmentX(
+                Component.CENTER_ALIGNMENT
+        );
+
+        botonVerArbol.setMaximumSize(
+                new Dimension(
+                        220,
+                        44
+                )
+        );
+
+        botonVerArbol.setEnabled(false);
+
+        botonVerArbol.addActionListener(
+                e -> mostrarArbolCompleto()
+        );
+    }
+
+    private JPanel crearBarraSuperior(
+            JButton botonCompilar) {
+
+        JPanel superior =
+                new JPanel(
+                        new BorderLayout(
+                                16,
+                                0
+                        )
+                );
+
         superior.setOpaque(false);
-        JPanel marca = new JPanel(new BorderLayout());
+
+        JPanel marca =
+                new JPanel(
+                        new BorderLayout()
+                );
+
         marca.setOpaque(false);
-        JLabel titulo = new JLabel("Compiscript IDE");
-        titulo.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
-        titulo.setForeground(Color.WHITE);
-        JLabel subtitulo = new JLabel("Analizador léxico, sintáctico y semántico");
-        subtitulo.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-        subtitulo.setForeground(TEXTO_SUAVE);
-        marca.add(titulo, BorderLayout.NORTH);
-        marca.add(subtitulo, BorderLayout.SOUTH);
 
-        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JLabel titulo =
+                new JLabel(
+                        "Compiscript IDE"
+                );
+
+        titulo.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        20
+                )
+        );
+
+        titulo.setForeground(
+                Color.WHITE
+        );
+
+        JLabel subtitulo =
+                new JLabel(
+                        "Análisis y generación de código intermedio TAC"
+                );
+
+        subtitulo.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.PLAIN,
+                        12
+                )
+        );
+
+        subtitulo.setForeground(
+                TEXTO_SUAVE
+        );
+
+        marca.add(
+                titulo,
+                BorderLayout.NORTH
+        );
+
+        marca.add(
+                subtitulo,
+                BorderLayout.SOUTH
+        );
+
+        JPanel acciones =
+                new JPanel(
+                        new FlowLayout(
+                                FlowLayout.RIGHT,
+                                12,
+                                0
+                        )
+                );
+
         acciones.setOpaque(false);
-        estado.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        estado.setForeground(TEXTO_SUAVE);
-        acciones.add(estado);
-        acciones.add(botonCompilar);
-        superior.add(marca, BorderLayout.WEST);
-        superior.add(acciones, BorderLayout.EAST);
 
-        setLayout(new BorderLayout());
-        getContentPane().setBackground(FONDO);
-        contenido.add(superior, BorderLayout.NORTH);
-        contenido.add(split, BorderLayout.CENTER);
-        add(contenido, BorderLayout.CENTER);
+        estado.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        12
+                )
+        );
+
+        estado.setForeground(
+                TEXTO_SUAVE
+        );
+
+        acciones.add(estado);
+
+        acciones.add(
+                botonSecundario(
+                        "Abrir…",
+                        this::abrirArchivo
+                )
+        );
+
+        acciones.add(
+                botonSecundario(
+                        "Guardar",
+                        this::guardarArchivo
+                )
+        );
+
+        acciones.add(
+                botonCompilar
+        );
+
+        superior.add(
+                marca,
+                BorderLayout.WEST
+        );
+
+        superior.add(
+                acciones,
+                BorderLayout.EAST
+        );
+
+        return superior;
+    }
+
+    private void mostrarArbolCompleto() {
+        if (!arbolDisponible) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Compile un programa válido antes de visualizar el árbol.",
+                    "Árbol sintáctico",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            return;
+        }
+
+        if (ventanaArbol == null) {
+            ventanaArbol =
+                    new JDialog(
+                            this,
+                            "Árbol sintáctico - Compiscript",
+                            false
+                    );
+
+            ventanaArbol.setDefaultCloseOperation(
+                    JDialog.HIDE_ON_CLOSE
+            );
+
+            ventanaArbol.setLayout(
+                    new BorderLayout()
+            );
+
+            ventanaArbol.setMinimumSize(
+                    new Dimension(
+                            900,
+                            600
+                    )
+            );
+
+            ventanaArbol.setSize(
+                    1250,
+                    800
+            );
+
+            ventanaArbol.setLocationRelativeTo(
+                    this
+            );
+
+            JPanel cabecera =
+                    new JPanel(
+                            new BorderLayout(
+                                    16,
+                                    0
+                            )
+                    );
+
+            cabecera.setBackground(
+                    FONDO
+            );
+
+            cabecera.setBorder(
+                    BorderFactory.createEmptyBorder(
+                            14,
+                            18,
+                            14,
+                            18
+                    )
+            );
+
+            JPanel textos =
+                    new JPanel(
+                            new BorderLayout()
+                    );
+
+            textos.setOpaque(false);
+
+            JLabel titulo =
+                    new JLabel(
+                            "Árbol sintáctico"
+                    );
+
+            titulo.setFont(
+                    new Font(
+                            Font.SANS_SERIF,
+                            Font.BOLD,
+                            18
+                    )
+            );
+
+            titulo.setForeground(
+                    TEXTO
+            );
+
+            JLabel ayuda =
+                    new JLabel(
+                            "Zoom · búsqueda · plegado · desplazamiento"
+                    );
+
+            ayuda.setFont(
+                    new Font(
+                            Font.SANS_SERIF,
+                            Font.PLAIN,
+                            12
+                    )
+            );
+
+            ayuda.setForeground(
+                    TEXTO_SUAVE
+            );
+
+            textos.add(
+                    titulo,
+                    BorderLayout.NORTH
+            );
+
+            textos.add(
+                    ayuda,
+                    BorderLayout.SOUTH
+            );
+
+            JButton cerrar =
+                    botonSecundario(
+                            "Cerrar",
+                            e -> ventanaArbol.setVisible(false)
+                    );
+
+            cabecera.add(
+                    textos,
+                    BorderLayout.WEST
+            );
+
+            cabecera.add(
+                    cerrar,
+                    BorderLayout.EAST
+            );
+
+            ventanaArbol.add(
+                    cabecera,
+                    BorderLayout.NORTH
+            );
+
+            ventanaArbol.add(
+                    arbolSintactico,
+                    BorderLayout.CENTER
+            );
+        }
+
+        ventanaArbol.setVisible(true);
+        ventanaArbol.toFront();
+        ventanaArbol.requestFocus();
     }
 
     private JTextArea crearNumerosLinea() {
-        JTextArea numeros = new JTextArea("1");
+        JTextArea numeros =
+                new JTextArea("1");
+
         numeros.setEditable(false);
         numeros.setFocusable(false);
         numeros.setFont(editor.getFont());
         numeros.setBackground(PANEL);
         numeros.setForeground(TEXTO_SUAVE);
-        numeros.setMargin(new Insets(10, 8, 10, 8));
-        numeros.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, BORDE));
+
+        numeros.setMargin(
+                new Insets(
+                        10,
+                        8,
+                        10,
+                        8
+                )
+        );
+
+        numeros.setBorder(
+                BorderFactory.createMatteBorder(
+                        0,
+                        0,
+                        0,
+                        1,
+                        BORDE
+                )
+        );
+
         Runnable actualizar = () -> {
-            int lineas = editor.getLineCount();
-            StringBuilder texto = new StringBuilder();
-            for (int i = 1; i <= lineas; i++) texto.append(i).append('\n');
-            numeros.setText(texto.toString());
+            int lineas =
+                    editor.getLineCount();
+
+            StringBuilder texto =
+                    new StringBuilder();
+
+            for (
+                    int i = 1;
+                    i <= lineas;
+                    i++
+            ) {
+                texto.append(i)
+                        .append('\n');
+            }
+
+            numeros.setText(
+                    texto.toString()
+            );
         };
-        editor.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { actualizar.run(); }
-            @Override public void removeUpdate(DocumentEvent e) { actualizar.run(); }
-            @Override public void changedUpdate(DocumentEvent e) { actualizar.run(); }
-        });
+
+        editor.getDocument()
+                .addDocumentListener(
+                        new DocumentListener() {
+
+                            @Override
+                            public void insertUpdate(
+                                    DocumentEvent e) {
+
+                                actualizar.run();
+                            }
+
+                            @Override
+                            public void removeUpdate(
+                                    DocumentEvent e) {
+
+                                actualizar.run();
+                            }
+
+                            @Override
+                            public void changedUpdate(
+                                    DocumentEvent e) {
+
+                                actualizar.run();
+                            }
+                        }
+                );
+
         actualizar.run();
+
         return numeros;
     }
 
-    private void estilizarScroll(JScrollPane scroll) {
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getViewport().setBackground(PANEL);
+    private JButton botonSecundario(
+            String texto,
+            Consumer<ActionEvent> accion) {
+
+        JButton boton =
+                new JButton(texto);
+
+        boton.setFont(
+                new Font(
+                        Font.SANS_SERIF,
+                        Font.BOLD,
+                        13
+                )
+        );
+
+        boton.setForeground(TEXTO);
+        boton.setBackground(PANEL);
+        boton.setOpaque(true);
+
+        boton.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                BORDE
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                9,
+                                14,
+                                9,
+                                14
+                        )
+                )
+        );
+
+        boton.setFocusPainted(false);
+
+        boton.addActionListener(
+                accion::accept
+        );
+
+        return boton;
     }
 
-    private void estilizarArbol(JTree arbol) {
-        arbol.setBackground(PANEL);
-        arbol.setForeground(TEXTO);
-        arbol.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
-        arbol.setRowHeight(24);
-        arbol.setShowsRootHandles(true);
-        DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-        renderer.setBackgroundNonSelectionColor(PANEL);
-        renderer.setBackgroundSelectionColor(AZUL);
-        renderer.setTextNonSelectionColor(TEXTO);
-        renderer.setTextSelectionColor(Color.WHITE);
-        renderer.setBorderSelectionColor(AZUL);
-        arbol.setCellRenderer(renderer);
-    }
-
-    private void compilar(ActionEvent evento) {
-        String codigo = editor.getText();
+    private void irALinea(int linea) {
         try {
-            CompiscriptLexer lexer = new CompiscriptLexer(CharStreams.fromString(codigo));
-            List<String> erroresLexicos = new ArrayList<>();
-            registrarErroresLexicos(lexer, erroresLexicos::add);
-            CompiscriptParser parser = new CompiscriptParser(new CommonTokenStream(lexer));
-            parser.removeErrorListeners();
-            List<String> erroresSintaxis = new ArrayList<>();
-            parser.addErrorListener(new BaseErrorListener() {
-                @Override public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
-                                                    int linea, int columna, String mensaje, RecognitionException ex) {
-                    erroresSintaxis.add("Sintaxis " + linea + ":" + columna + " - " + mensaje);
-                }
-            });
-            ParseTree arbol = parser.program();
-            arbolSintactico.setModel(new DefaultTreeModel(nodoDelArbol(arbol, parser)));
-            expandirHasta(arbolSintactico, 2);
+            int inicio =
+                    editor.getLineStartOffset(
+                            Math.max(
+                                    0,
+                                    linea - 1
+                            )
+                    );
 
-            if (!erroresLexicos.isEmpty() || !erroresSintaxis.isEmpty()) {
-                List<String> erroresAnalisis = new ArrayList<>(erroresLexicos);
-                erroresAnalisis.addAll(erroresSintaxis);
-                salida.setForeground(ROJO);
-                salida.setText(String.join("\n", erroresAnalisis));
-                estado.setForeground(ROJO);
-                estado.setText("● Error de análisis (" + erroresAnalisis.size() + ")");
-                tablaSimbolos.setModel(new DefaultTreeModel(new DefaultMutableTreeNode(
-                        "(no disponible: hay errores lexicos o sintacticos)")));
+            int fin =
+                    editor.getLineEndOffset(
+                            Math.max(
+                                    0,
+                                    linea - 1
+                            )
+                    );
+
+            editor.requestFocusInWindow();
+
+            editor.select(
+                    inicio,
+                    Math.max(
+                            inicio,
+                            fin - 1
+                    )
+            );
+        } catch (
+                javax.swing.text.BadLocationException ignorada
+        ) {
+        }
+    }
+
+    private void abrirArchivo(
+            ActionEvent evento) {
+
+        JFileChooser selector =
+                new JFileChooser(
+                        archivoActual != null
+                                ? archivoActual.getParentFile()
+                                : new java.io.File(
+                                        System.getProperty(
+                                                "user.dir"
+                                        )
+                                )
+                );
+
+        selector.setDialogTitle(
+                "Seleccionar archivo Compiscript"
+        );
+
+        selector.setFileFilter(
+                new FileNameExtensionFilter(
+                        "Archivos Compiscript (*.cps)",
+                        "cps"
+                )
+        );
+
+        if (
+                selector.showOpenDialog(this)
+                        != JFileChooser.APPROVE_OPTION
+        ) {
+            return;
+        }
+
+        cargarArchivo(
+                selector.getSelectedFile()
+        );
+    }
+
+    void cargarArchivo(
+            java.io.File archivo) {
+
+        try {
+            editor.setText(
+                    java.nio.file.Files.readString(
+                            archivo.toPath()
+                    )
+            );
+
+            editor.setCaretPosition(0);
+
+            archivoActual =
+                    archivo;
+
+            setTitle(
+                    "Compiscript IDE — "
+                            + archivo.getName()
+            );
+
+            compilar(null);
+
+        } catch (
+                java.io.IOException ex
+        ) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No se pudo leer el archivo:\n"
+                            + ex.getMessage(),
+                    "Error de lectura",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void guardarArchivo(
+            ActionEvent evento) {
+
+        java.io.File destino =
+                archivoActual;
+
+        if (destino == null) {
+            JFileChooser selector =
+                    new JFileChooser(
+                            new java.io.File(
+                                    System.getProperty(
+                                            "user.dir"
+                                    )
+                            )
+                    );
+
+            selector.setFileFilter(
+                    new FileNameExtensionFilter(
+                            "Archivos Compiscript (*.cps)",
+                            "cps"
+                    )
+            );
+
+            if (
+                    selector.showSaveDialog(this)
+                            != JFileChooser.APPROVE_OPTION
+            ) {
                 return;
             }
 
-            AnalisisSemantico analisis = AnalizadorSemantico.analizar(codigo);
-            ResultadoSemantico resultado = analisis.resultado();
-            tablaSimbolos.setModel(new DefaultTreeModel(nodoDelAmbito(analisis.ambitoGlobal())));
-            expandirHasta(tablaSimbolos, 3);
+            destino =
+                    selector.getSelectedFile();
 
-            if (resultado.esValido()) {
-                salida.setForeground(VERDE);
-                salida.setText("Compilacion exitosa: no se encontraron errores semanticos.");
-                estado.setForeground(VERDE);
-                estado.setText("● Compilación exitosa");
+            if (
+                    !destino
+                            .getName()
+                            .contains(".")
+            ) {
+                destino =
+                        new java.io.File(
+                                destino.getPath()
+                                        + ".cps"
+                        );
+            }
+        }
+
+        try {
+            java.nio.file.Files.writeString(
+                    destino.toPath(),
+                    editor.getText()
+            );
+
+            archivoActual =
+                    destino;
+
+            setTitle(
+                    "Compiscript IDE — "
+                            + destino.getName()
+            );
+
+            estado.setForeground(
+                    TEXTO_SUAVE
+            );
+
+            estado.setText(
+                    " Guardado"
+            );
+
+        } catch (
+                java.io.IOException ex
+        ) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No se pudo guardar:\n"
+                            + ex.getMessage(),
+                    "Error de escritura",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void compilar(
+            ActionEvent evento) {
+
+        try {
+            ResultadoCompilacion resultado =
+                    Compilador.compilar(
+                            editor.getText()
+                    );
+
+            errores.mostrar(
+                    resultado
+            );
+
+            if (
+                    resultado.arbol()
+                            != null
+            ) {
+                arbolSintactico.mostrar(
+                        resultado.arbol()
+                );
+
+                arbolDisponible = true;
+
+                botonVerArbol.setEnabled(
+                        true
+                );
+
+                resumenArbol.setText(
+                        "Árbol generado correctamente."
+                );
             } else {
-                salida.setForeground(ROJO);
-                StringBuilder texto = new StringBuilder();
-                for (var error : resultado.errores())
-                    texto.append(error.linea()).append(':').append(error.columna())
-                         .append(" - ").append(error.descripcion()).append('\n');
-                salida.setText(texto.toString());
-                estado.setForeground(ROJO);
-                estado.setText("● " + resultado.cantidadErrores() + " error(es)");
+                arbolDisponible = false;
+
+                botonVerArbol.setEnabled(
+                        false
+                );
+
+                resumenArbol.setText(
+                        "No se pudo generar el árbol sintáctico."
+                );
             }
-        } catch (Exception ex) {
-            salida.setForeground(ROJO);
-            salida.setText("Error inesperado: " + ex);
-            estado.setText(" Error inesperado");
+
+            if (
+                    resultado.analisis()
+                            != null
+            ) {
+                tablaSimbolos.mostrar(
+                        resultado.analisis()
+                );
+            } else {
+                tablaSimbolos.limpiar(
+                        "No disponible: hay errores léxicos o sintácticos"
+                );
+            }
+
+            if (
+                    resultado.esValido()
+            ) {
+                codigoIntermedio.mostrar(
+                        resultado
+                );
+
+                estructuras.mostrar(
+                        resultado
+                );
+
+                estado.setForeground(
+                        VERDE
+                );
+
+                estado.setText(
+                        "● Compilación exitosa"
+                );
+
+                pestanas.setSelectedComponent(
+                        codigoIntermedio
+                );
+
+            } else {
+                codigoIntermedio.limpiar(
+                        "No se genera código intermedio mientras existan errores."
+                );
+
+                estructuras.limpiar();
+
+                estado.setForeground(
+                        ROJO
+                );
+
+                estado.setText(
+                        "● "
+                                + resultado
+                                .errores()
+                                .size()
+                                + " error(es)"
+                );
+
+                pestanas.setSelectedComponent(
+                        errores
+                );
+            }
+
+        } catch (
+                Exception ex
+        ) {
+            errores.mensaje(
+                    "Error inesperado: "
+                            + ex
+            );
+
+            estado.setForeground(
+                    ROJO
+            );
+
+            estado.setText(
+                    " Error inesperado"
+            );
         }
     }
 
-    /** Conecta los errores del lexer con la salida visible del IDE. */
-    static void registrarErroresLexicos(CompiscriptLexer lexer, Consumer<String> receptor) {
+    static void registrarErroresLexicos(
+            CompiscriptLexer lexer,
+            Consumer<String> receptor) {
+
         lexer.removeErrorListeners();
-        lexer.addErrorListener(new BaseErrorListener() {
-            @Override public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
-                                              int linea, int columna, String mensaje,
-                                              RecognitionException ex) {
-                receptor.accept("Lexico " + linea + ":" + columna + " - " + mensaje);
-            }
-        });
-    }
 
-    /** Construye la representacion visual (JTree) del arbol sintactico generado por ANTLR. */
-    private DefaultMutableTreeNode nodoDelArbol(ParseTree nodo, CompiscriptParser parser) {
-        String etiqueta = nodo instanceof TerminalNode
-                ? "'" + nodo.getText() + "'"
-                : Trees.getNodeText(nodo, Arrays.asList(parser.getRuleNames()));
-        DefaultMutableTreeNode raiz = new DefaultMutableTreeNode(etiqueta);
-        for (int i = 0; i < nodo.getChildCount(); i++) raiz.add(nodoDelArbol(nodo.getChild(i), parser));
-        return raiz;
-    }
+        lexer.addErrorListener(
+                new BaseErrorListener() {
 
-    /** Construye la representacion visual (JTree) de la tabla de simbolos, ambito por ambito. */
-    private DefaultMutableTreeNode nodoDelAmbito(Ambito ambito) {
-        DefaultMutableTreeNode raiz = new DefaultMutableTreeNode(ambito.nombre());
-        for (Simbolo simbolo : ambito.simbolos()) {
-            DefaultMutableTreeNode nodoSimbolo = new DefaultMutableTreeNode(
-                    simbolo.categoria() + " " + simbolo.nombre() + " : " + simbolo.tipo());
-            if (simbolo.miembros() != null) nodoSimbolo.add(nodoDelAmbito(simbolo.miembros()));
-            raiz.add(nodoSimbolo);
-        }
-        return raiz;
-    }
+                    @Override
+                    public void syntaxError(
+                            Recognizer<?, ?> recognizer,
+                            Object offendingSymbol,
+                            int linea,
+                            int columna,
+                            String mensaje,
+                            RecognitionException ex) {
 
-    /**
-     * Expande solo unos niveles. Expandir el arbol completo puede contener miles de
-     * nodos y provocar recursion en la capa de accesibilidad nativa de Swing en macOS.
-     */
-    private void expandirHasta(JTree arbol, int profundidadMaxima) {
-        Object raiz = arbol.getModel().getRoot();
-        if (raiz instanceof TreeNode nodo) {
-            expandirHasta(arbol, new TreePath(nodo), 0, profundidadMaxima);
-        }
-    }
-
-    private void expandirHasta(JTree arbol, TreePath ruta, int profundidad, int maxima) {
-        arbol.expandPath(ruta);
-        if (profundidad >= maxima) return;
-        TreeNode nodo = (TreeNode) ruta.getLastPathComponent();
-        for (int i = 0; i < nodo.getChildCount(); i++) {
-            expandirHasta(arbol, ruta.pathByAddingChild(nodo.getChildAt(i)), profundidad + 1, maxima);
-        }
+                        receptor.accept(
+                                "Lexico "
+                                        + linea
+                                        + ":"
+                                        + columna
+                                        + " - "
+                                        + mensaje
+                        );
+                    }
+                }
+        );
     }
 
     private static final String EJEMPLO = """
@@ -356,11 +1286,25 @@ public final class CompiscriptIDE extends JFrame {
             }
             """;
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            UIManager.put("ToolTip.background", PANEL);
-            UIManager.put("ToolTip.foreground", TEXTO);
-            new CompiscriptIDE().setVisible(true);
-        });
+    public static void main(
+            String[] args) {
+
+        SwingUtilities.invokeLater(
+                () -> {
+
+                    UIManager.put(
+                            "ToolTip.background",
+                            PANEL
+                    );
+
+                    UIManager.put(
+                            "ToolTip.foreground",
+                            TEXTO
+                    );
+
+                    new CompiscriptIDE()
+                            .setVisible(true);
+                }
+        );
     }
 }

@@ -14,19 +14,23 @@
   Análisis léxico, sintáctico y semántico con generación de código intermedio TAC.
 </p>
 
+<p align="center">
+  <b>Estado del proyecto: Finalizado</b>
+</p>
+
 ---
 
 ## Descripción
 
 **Compiscript Compiler** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
 
-El proyecto implementa distintas etapas del proceso de compilación de programas escritos en Compiscript.
+El proyecto implementa las principales etapas de análisis y generación de código intermedio para programas escritos en Compiscript.
 
-El **Proyecto 1** construyó la base del compilador mediante análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos y manejo de ámbitos.
+El **Proyecto 1** construyó la base del compilador mediante análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos, ámbitos y validaciones del lenguaje.
 
-El **Proyecto 2** extiende esta infraestructura con la generación de código intermedio utilizando **Three-Address Code (TAC)**, administración de temporales, control de flujo, funciones, registros de activación, arreglos, clases y estructuras necesarias para representar la ejecución del programa.
+El **Proyecto 2** extiende esta infraestructura con generación de código intermedio utilizando **Three-Address Code (TAC)**, administración de temporales y etiquetas, control de flujo, funciones, registros de activación, arreglos, clases y estructuras necesarias para representar la ejecución del programa.
 
-El flujo general es:
+El flujo general del compilador es:
 
 ```text
 Código Compiscript
@@ -57,13 +61,14 @@ Generación de código intermedio
 
 ## Características principales
 
-El compilador actualmente incluye:
+El compilador incluye:
 
 - Análisis léxico y sintáctico mediante ANTLR.
 - Análisis semántico y sistema de tipos.
 - Tabla de símbolos y manejo de ámbitos.
 - Generación de código intermedio TAC.
 - Creación, liberación y reutilización de variables temporales.
+- Generación y administración de etiquetas.
 - Expresiones aritméticas, lógicas, relacionales y de igualdad.
 - Precedencia de operadores y expresiones entre paréntesis.
 - Declaraciones y asignaciones.
@@ -85,7 +90,7 @@ El compilador actualmente incluye:
 
 ## Código intermedio TAC
 
-El proyecto utiliza **Three-Address Code** como representación intermedia.
+El proyecto utiliza **Three-Address Code (TAC)** como representación intermedia.
 
 Por ejemplo, el código Compiscript:
 
@@ -93,7 +98,7 @@ Por ejemplo, el código Compiscript:
 let x: integer = a + b * c;
 ```
 
-genera:
+puede generar:
 
 ```text
 t0 = b * c
@@ -101,15 +106,15 @@ t1 = a + t0
 x = t1
 ```
 
-La precedencia se obtiene directamente del árbol sintáctico generado por ANTLR. El generador TAC recorre este árbol y produce las instrucciones en el orden correspondiente.
+La precedencia de operadores se obtiene del árbol sintáctico generado por ANTLR. El generador TAC recorre esta estructura y produce las instrucciones en el orden correspondiente.
 
-Otro ejemplo:
+Por ejemplo:
 
 ```cps
 (a + b) * c
 ```
 
-produce:
+genera:
 
 ```text
 t0 = a + b
@@ -118,7 +123,7 @@ t1 = t0 * c
 
 ### Temporales
 
-Los resultados intermedios utilizan temporales:
+Los resultados intermedios utilizan variables temporales:
 
 ```text
 t0
@@ -136,7 +141,7 @@ x = a + b;
 y = c + d;
 ```
 
-puede producir:
+puede generar:
 
 ```text
 t0 = a + b
@@ -145,13 +150,13 @@ t0 = c + d
 y = t0
 ```
 
-La reutilización evita crear temporales innecesarios durante la generación de código intermedio.
+De esta manera, un temporal puede reutilizarse cuando su valor anterior ya no es necesario.
 
-Las convenciones completas del lenguaje intermedio se encuentran en [`docs/TAC.md`](docs/TAC.md).
+Las convenciones completas de la representación intermedia se encuentran en [`docs/TAC.md`](docs/TAC.md).
 
 ---
 
-## Arquitectura general
+## Arquitectura
 
 El proyecto se organiza principalmente en los siguientes módulos:
 
@@ -177,38 +182,51 @@ Contiene la representación y generación del código intermedio, administració
 
 ### `compiler`
 
-Integra las diferentes etapas del compilador y expone el pipeline completo desde código Compiscript hasta los resultados de compilación.
+Integra las diferentes etapas del compilador y permite ejecutar el pipeline completo desde código Compiscript hasta los resultados de compilación.
 
 ### `ide`
 
-Contiene la interfaz gráfica y las visualizaciones del compilador.
+Contiene la interfaz gráfica y las diferentes visualizaciones del compilador.
 
 ---
 
 ## IDE
 
-El proyecto incluye un IDE desarrollado con **Java Swing**.
+El proyecto incluye un IDE desarrollado con **Java Swing** para trabajar directamente con programas Compiscript.
 
-Permite:
+La interfaz permite:
 
 - Escribir código Compiscript.
 - Abrir archivos `.cps`.
 - Guardar programas.
-- Compilar con un botón o mediante `Ctrl + Enter`.
+- Compilar mediante el botón `Compilar`.
+- Compilar mediante `Ctrl + Enter`.
 - Consultar errores léxicos, sintácticos y semánticos.
 - Visualizar el código intermedio TAC.
-- Visualizar la tabla de símbolos.
-- Consultar registros de activación y estructuras de clases.
-- Explorar el árbol sintáctico.
+- Consultar la tabla de símbolos.
+- Visualizar registros de activación y estructuras de clases.
+- Explorar el árbol sintáctico generado por ANTLR.
 
-El árbol sintáctico dispone de una ventana independiente con:
+Las vistas principales del IDE son:
 
-- Zoom.
-- Panorama.
-- Búsqueda de nodos.
-- Desplazamiento.
-- Expansión y plegado de ramas.
-- Visualización completa del árbol generado por ANTLR.
+```text
+Problemas | TAC | Árbol | Símbolos | Runtime
+```
+
+### Visualización del árbol sintáctico
+
+El árbol sintáctico puede abrirse en una ventana independiente para facilitar la visualización de programas grandes.
+
+La herramienta permite:
+
+- Mostrar el árbol completo.
+- Expandir y plegar ramas.
+- Aplicar zoom.
+- Mostrar una vista panorámica.
+- Buscar nodos.
+- Centrar el árbol.
+- Desplazarse horizontal y verticalmente.
+- Seleccionar nodos y consultar su ubicación en el código.
 
 Para ejecutar el IDE:
 
@@ -226,7 +244,7 @@ mvn compile exec:java -Dexec.mainClass=ide.CompiscriptIDE
 
 ## Ejemplos
 
-Los programas de demostración se encuentran en:
+Los programas utilizados para probar el compilador se encuentran en:
 
 ```text
 examples/
@@ -234,7 +252,9 @@ examples/
 └── errores/
 ```
 
-`examples/tac` contiene programas válidos para probar características como:
+### Programas válidos
+
+`examples/tac` contiene ejemplos para probar características como:
 
 - Expresiones.
 - Condicionales.
@@ -245,18 +265,22 @@ examples/
 - Recursión.
 - Arreglos.
 - Clases y herencia.
-- `try/catch`.
+- Manejo de excepciones con `try/catch`.
 
-`examples/errores` contiene programas diseñados para comprobar el manejo de errores léxicos, sintácticos y semánticos.
+### Programas con errores
+
+`examples/errores` contiene casos diseñados para comprobar la detección y presentación de errores léxicos, sintácticos y semánticos.
 
 ---
 
 ## Requisitos
 
+Para ejecutar el proyecto se necesita:
+
 - Java 17 o superior.
 - Maven 3.9 o superior.
 
-Verifica las instalaciones con:
+Puedes verificar las instalaciones con:
 
 ```bash
 java -version
@@ -265,7 +289,7 @@ mvn -version
 
 ---
 
-## Instalación y ejecución
+## Instalación
 
 Clona el repositorio:
 
@@ -280,23 +304,49 @@ Cambia a la rama del Proyecto 2:
 git switch proyecto-2-tac
 ```
 
-Compila:
+Compila el proyecto:
 
 ```bash
 mvn clean compile
 ```
 
-Ejecuta las pruebas:
+Una compilación correcta debe finalizar con:
 
-```bash
-mvn test
+```text
+BUILD SUCCESS
 ```
 
-Ejecuta el IDE:
+---
+
+## Ejecución
+
+Para abrir el IDE:
 
 ```bash
 mvn exec:java
 ```
+
+El flujo normal de uso es:
+
+```text
+Escribir o abrir programa .cps
+              │
+              ▼
+           Compilar
+              │
+              ▼
+     Análisis del programa
+              │
+              ▼
+     Generación de código TAC
+              │
+              ▼
+ Visualización de resultados
+```
+
+Si existen errores, estos se muestran en la vista **Problemas**.
+
+Si el programa es válido, el IDE permite consultar el TAC, árbol sintáctico, tabla de símbolos y estructuras de runtime.
 
 ---
 
@@ -304,13 +354,15 @@ mvn exec:java
 
 El proyecto utiliza **JUnit 5** para validar las diferentes etapas del compilador.
 
-La batería de pruebas cubre, entre otros:
+La batería de pruebas cubre:
 
 - Análisis semántico.
+- Sistema de tipos.
 - Tabla de símbolos.
 - Operadores y expresiones.
 - Generación TAC.
-- Temporales y etiquetas.
+- Administración de temporales.
+- Administración de etiquetas.
 - Asignaciones.
 - Condicionales.
 - Ciclos.
@@ -319,9 +371,10 @@ La batería de pruebas cubre, entre otros:
 - Funciones.
 - Recursión.
 - Registros de activación.
-- Arreglos y clases.
+- Arreglos.
+- Clases.
 - Integración del compilador.
-- Visualización del árbol sintáctico.
+- IDE y visualización del árbol sintáctico.
 
 Para ejecutar toda la suite:
 
@@ -331,24 +384,33 @@ mvn clean test
 
 La versión actual contiene **274 pruebas automatizadas**.
 
-Antes de una entrega se espera:
+El resultado esperado es:
 
 ```text
+Tests run: 274
 Failures: 0
 Errors: 0
+Skipped: 0
+
 BUILD SUCCESS
 ```
 
-Para ejecutar únicamente las pruebas TAC:
+Para ejecutar únicamente las pruebas relacionadas con TAC:
 
 ```bash
 mvn -Dtest="tac.*Test" test
 ```
 
-También puede ejecutarse una clase específica:
+Para ejecutar una clase específica:
 
 ```bash
 mvn -Dtest=GeneradorExpresionesTACTest test
+```
+
+Para ejecutar un caso individual:
+
+```bash
+mvn -Dtest=GeneradorExpresionesTACTest#respetaParentesis test
 ```
 
 ---
@@ -365,19 +427,61 @@ La documentación técnica adicional se encuentra en:
 
 ## Estado del proyecto
 
+> **Estado general: Finalizado**
+
+El desarrollo correspondiente a los Proyectos 1 y 2 se encuentra completado.
+
 ### Proyecto 1 — Análisis semántico
 
-Completado.
+**Estado: Finalizado**
 
-Incluye análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos, ámbitos, funciones, clases, arreglos, control de flujo y manejo de errores.
+Incluye:
+
+- Análisis léxico.
+- Análisis sintáctico.
+- Análisis semántico.
+- Sistema de tipos.
+- Tabla de símbolos.
+- Manejo de ámbitos.
+- Funciones.
+- Clases.
+- Arreglos.
+- Control de flujo.
+- Manejo de errores.
+- IDE.
 
 ### Proyecto 2 — Generación de código intermedio
 
-Implementado.
+**Estado: Finalizado**
 
-Incluye generación TAC para expresiones y sentencias, temporales, etiquetas, control de flujo, funciones, recursión, registros de activación, arreglos, clases, objetos y estructuras de runtime.
+Incluye:
 
-El IDE integra las diferentes etapas y permite visualizar el código intermedio, árbol sintáctico, tabla de símbolos, errores y estructuras generadas durante la compilación.
+- Representación intermedia TAC.
+- Generación de TAC desde el árbol sintáctico.
+- Expresiones y asignaciones.
+- Administración y reutilización de temporales.
+- Administración de etiquetas.
+- Condicionales.
+- Ciclos.
+- `break` y `continue`.
+- `switch`.
+- Funciones, parámetros, llamadas y retornos.
+- Recursión.
+- Registros de activación.
+- Arreglos.
+- Clases y objetos.
+- Atributos y constructores.
+- `this`.
+- Herencia y llamadas a métodos.
+- Manejo de `try/catch`.
+- Integración con la tabla de símbolos.
+- Visualización de TAC en el IDE.
+- Visualización interactiva del árbol sintáctico.
+- Visualización de símbolos y estructuras de runtime.
+- Programas de ejemplo.
+- Pruebas automatizadas.
+
+El compilador permite recorrer el flujo desde un programa escrito en Compiscript hasta la generación y visualización de su representación intermedia.
 
 ---
 

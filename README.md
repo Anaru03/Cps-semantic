@@ -6,52 +6,80 @@
   <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" />
   <img src="https://img.shields.io/badge/JUnit-5-green?style=for-the-badge&logo=junit5&logoColor=white" />
   <img src="https://img.shields.io/badge/TAC-Three--Address%20Code-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/status-en%20desarrollo-yellow?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/status-finalizado-brightgreen?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <b>Compilador académico para el lenguaje Compiscript.</b><br/>
+  <b>Compilador académico para el lenguaje Compiscript</b><br/>
   Análisis léxico, sintáctico y semántico con generación de código intermedio TAC.
 </p>
 
 ---
 
-## ¿Qué es?
+## Descripción
 
 **Compiscript Compiler** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
 
 El proyecto implementa distintas etapas del proceso de compilación de programas escritos en Compiscript.
 
-La primera etapa del proyecto desarrolló el análisis léxico, sintáctico y semántico del lenguaje, incluyendo sistema de tipos, tabla de símbolos, ámbitos, funciones, clases, arreglos, estructuras de control y manejo de errores.
+El **Proyecto 1** construyó la base del compilador mediante análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos y manejo de ámbitos.
 
-La segunda etapa extiende esta infraestructura para generar una representación intermedia basada en **Three-Address Code (TAC)** a partir del árbol sintáctico generado por ANTLR.
+El **Proyecto 2** extiende esta infraestructura con la generación de código intermedio utilizando **Three-Address Code (TAC)**, administración de temporales, control de flujo, funciones, registros de activación, arreglos, clases y estructuras necesarias para representar la ejecución del programa.
 
 El flujo general es:
 
 ```text
 Código Compiscript
-        |
-        v
+        │
+        ▼
       Lexer
-        |
-        v
+        │
+        ▼
       Parser
-        |
-        v
+        │
+        ▼
 Árbol sintáctico
-        |
-        v
+        │
+        ▼
 Análisis semántico
-        |
-        v
+        │
+        ▼
 Tabla de símbolos
-        |
-        v
+        │
+        ▼
 Generación de código intermedio
-        |
-        v
+        │
+        ▼
        TAC
 ```
+
+---
+
+## Características principales
+
+El compilador actualmente incluye:
+
+- Análisis léxico y sintáctico mediante ANTLR.
+- Análisis semántico y sistema de tipos.
+- Tabla de símbolos y manejo de ámbitos.
+- Generación de código intermedio TAC.
+- Creación, liberación y reutilización de variables temporales.
+- Expresiones aritméticas, lógicas, relacionales y de igualdad.
+- Precedencia de operadores y expresiones entre paréntesis.
+- Declaraciones y asignaciones.
+- Condicionales `if/else`.
+- Ciclos `while`, `do-while`, `for` y `foreach`.
+- `break` y `continue`.
+- `switch`, `case` y `default`.
+- Funciones, parámetros, llamadas y valores de retorno.
+- Recursión y registros de activación.
+- Arreglos y acceso por índice.
+- Clases, objetos, atributos, constructores y `this`.
+- Herencia y llamadas a métodos.
+- Manejo de `try/catch`.
+- Instrucción `print`.
+- IDE gráfico desarrollado con Java Swing.
+- Visualización de errores, TAC, árbol sintáctico, tabla de símbolos y estructuras de runtime.
 
 ---
 
@@ -59,13 +87,13 @@ Generación de código intermedio
 
 El proyecto utiliza **Three-Address Code** como representación intermedia.
 
-Una expresión Compiscript como:
+Por ejemplo, el código Compiscript:
 
 ```cps
 let x: integer = a + b * c;
 ```
 
-se transforma en:
+genera:
 
 ```text
 t0 = b * c
@@ -73,9 +101,9 @@ t1 = a + t0
 x = t1
 ```
 
-La precedencia de operadores no se calcula nuevamente durante esta fase. El Parser de ANTLR ya construye el árbol sintáctico de acuerdo con la precedencia definida en la gramática, y el generador TAC recorre esa estructura.
+La precedencia se obtiene directamente del árbol sintáctico generado por ANTLR. El generador TAC recorre este árbol y produce las instrucciones en el orden correspondiente.
 
-Por ejemplo:
+Otro ejemplo:
 
 ```cps
 (a + b) * c
@@ -88,119 +116,9 @@ t0 = a + b
 t1 = t0 * c
 ```
 
----
+### Temporales
 
-## Instrucciones TAC
-
-La representación intermedia soporta operaciones, asignaciones, etiquetas, saltos, condicionales, ciclos, switch, funciones, argumentos y retornos. Las convenciones y límites están en `docs/TAC.md`.
-
-### Operaciones binarias
-
-```text
-resultado = operando1 operador operando2
-```
-
-Ejemplo:
-
-```text
-t0 = a + b
-```
-
-### Operaciones unarias
-
-```text
-resultado = operador operando
-```
-
-Ejemplo:
-
-```text
-t0 = -a
-```
-
-### Asignaciones
-
-```text
-destino = valor
-```
-
-Ejemplo:
-
-```text
-x = t0
-```
-
----
-
-## Expresiones soportadas
-
-### Aritméticas
-
-```text
-+
--
-*
-/
-%
-```
-
-Ejemplos:
-
-```text
-t0 = a + b
-t1 = x * y
-t2 = n % 2
-```
-
-### Lógicas
-
-```text
-&&
-||
-!
-```
-
-Ejemplos:
-
-```text
-t0 = a && b
-t1 = x || y
-t2 = !activo
-```
-
-### Relacionales
-
-```text
-<
-<=
->
->=
-```
-
-Ejemplo:
-
-```text
-t0 = edad >= 18
-```
-
-### Igualdad
-
-```text
-==
-!=
-```
-
-Ejemplo:
-
-```text
-t0 = a == b
-```
-
----
-
-## Variables temporales
-
-Los resultados intermedios utilizan variables temporales:
+Los resultados intermedios utilizan temporales:
 
 ```text
 t0
@@ -209,7 +127,7 @@ t2
 ...
 ```
 
-La clase `AdministradorTemporales` se encarga de crear, liberar y reutilizar estos temporales.
+`AdministradorTemporales` permite crear, liberar y reutilizar temporales cuando sus valores dejan de ser necesarios.
 
 Por ejemplo:
 
@@ -218,7 +136,7 @@ x = a + b;
 y = c + d;
 ```
 
-puede generar:
+puede producir:
 
 ```text
 t0 = a + b
@@ -227,153 +145,116 @@ t0 = c + d
 y = t0
 ```
 
-Después de almacenar el primer resultado en `x`, `t0` deja de ser necesario y puede reutilizarse para la siguiente expresión.
+La reutilización evita crear temporales innecesarios durante la generación de código intermedio.
 
-También se liberan resultados intermedios cuando dejan de utilizarse durante la evaluación de expresiones compuestas.
-
----
-
-## Arquitectura
-
-La implementación está dividida en dos áreas principales.
-
-### Análisis del lenguaje
-
-El paquete `semantic` contiene la infraestructura desarrollada durante la primera etapa:
-
-```text
-semantic/
-├── AnalizadorSemantico
-├── AnalisisSemantico
-├── TipoVisitor
-├── Tipo
-├── Ambito
-├── Simbolo
-├── ResultadoSemantico
-└── validadores semánticos
-```
-
-Esta etapa se encarga de validar el programa antes de utilizarlo en fases posteriores.
-
-### Generación TAC
-
-El paquete `tac` contiene la infraestructura de código intermedio:
-
-```text
-tac/
-├── InstruccionTAC.java
-├── AdministradorTemporales.java
-├── GeneradorTAC.java
-└── GeneradorExpresionesTAC.java
-```
-
-`InstruccionTAC` representa una instrucción de tres direcciones.
-
-`AdministradorTemporales` administra la creación, liberación y reutilización de temporales.
-
-`GeneradorTAC` almacena y produce las instrucciones intermedias.
-
-`GeneradorExpresionesTAC` recorre el árbol sintáctico generado por ANTLR y traduce expresiones, declaraciones y asignaciones a TAC.
+Las convenciones completas del lenguaje intermedio se encuentran en [`docs/TAC.md`](docs/TAC.md).
 
 ---
 
-## Análisis semántico
+## Arquitectura general
 
-Antes de la generación de código intermedio, el proyecto cuenta con análisis semántico para verificar la coherencia del programa.
-
-Actualmente se manejan tipos como:
-
-| Tipo | Uso |
-|---|---|
-| `INTEGER` | Valores enteros |
-| `FLOAT` | Valores de punto flotante |
-| `STRING` | Cadenas |
-| `BOOLEAN` | Valores lógicos |
-| `NULL` | Valor nulo |
-| `ARRAY` | Arreglos |
-| `CLASS` | Clases |
-| `VOID` | Ausencia de valor |
-| `UNKNOWN` | Tipo todavía no determinado |
-| `ERROR` | Construcción semánticamente inválida |
-
-El análisis también incluye:
-
-- Variables y constantes
-- Compatibilidad de tipos
-- Funciones y parámetros
-- Retornos
-- Recursión
-- Clases y objetos
-- Arreglos
-- Ámbitos
-- Tabla de símbolos con filtro, ordenamiento y ámbitos diferenciados
-- Control de flujo
-- Detección de código muerto
-- Recuperación y reporte de múltiples errores
-
----
-
-## Ejemplo
-
-Código Compiscript:
-
-```cps
-let a: integer = 10;
-let b: integer = 20;
-let c: integer = 5;
-
-let resultado: integer = a + b * c;
-
-resultado = resultado - 1;
-```
-
-Código TAC correspondiente:
+El proyecto se organiza principalmente en los siguientes módulos:
 
 ```text
-a = 10
-b = 20
-c = 5
-
-t0 = b * c
-t1 = a + t0
-resultado = t1
-
-t1 = resultado - 1
-resultado = t1
+src/main/
+├── antlr4/
+│   └── Compiscript.g4
+│
+└── java/
+    ├── compiler/
+    ├── ide/
+    ├── semantic/
+    └── tac/
 ```
 
-Los temporales pueden reutilizarse cuando sus valores anteriores ya no son necesarios.
+### `semantic`
+
+Contiene el análisis semántico, sistema de tipos, tabla de símbolos, ámbitos y validaciones del lenguaje.
+
+### `tac`
+
+Contiene la representación y generación del código intermedio, administración de temporales y etiquetas, traducción de expresiones, sentencias, control de flujo, funciones y estructuras.
+
+### `compiler`
+
+Integra las diferentes etapas del compilador y expone el pipeline completo desde código Compiscript hasta los resultados de compilación.
+
+### `ide`
+
+Contiene la interfaz gráfica y las visualizaciones del compilador.
 
 ---
 
 ## IDE
 
-El proyecto conserva el IDE de escritorio desarrollado con **Java Swing**.
+El proyecto incluye un IDE desarrollado con **Java Swing**.
 
-Para ejecutarlo:
+Permite:
+
+- Escribir código Compiscript.
+- Abrir archivos `.cps`.
+- Guardar programas.
+- Compilar con un botón o mediante `Ctrl + Enter`.
+- Consultar errores léxicos, sintácticos y semánticos.
+- Visualizar el código intermedio TAC.
+- Visualizar la tabla de símbolos.
+- Consultar registros de activación y estructuras de clases.
+- Explorar el árbol sintáctico.
+
+El árbol sintáctico dispone de una ventana independiente con:
+
+- Zoom.
+- Panorama.
+- Búsqueda de nodos.
+- Desplazamiento.
+- Expansión y plegado de ramas.
+- Visualización completa del árbol generado por ANTLR.
+
+Para ejecutar el IDE:
 
 ```bash
 mvn exec:java
 ```
 
-La interfaz permite trabajar con código Compiscript y visualizar información producida por las etapas del compilador.
+También puede utilizarse:
 
-Actualmente incluye visualización de:
+```bash
+mvn compile exec:java -Dexec.mainClass=ide.CompiscriptIDE
+```
 
-- Errores
-- Árbol sintáctico como diagrama con zoom, búsqueda y ramas plegables
-- Tabla de símbolos con filtro, ordenamiento y ámbitos diferenciados
+---
 
-La integración de la representación intermedia TAC con la interfaz forma parte de la evolución del Proyecto 2.
+## Ejemplos
+
+Los programas de demostración se encuentran en:
+
+```text
+examples/
+├── tac/
+└── errores/
+```
+
+`examples/tac` contiene programas válidos para probar características como:
+
+- Expresiones.
+- Condicionales.
+- Ciclos.
+- `foreach`.
+- `switch`.
+- Funciones.
+- Recursión.
+- Arreglos.
+- Clases y herencia.
+- `try/catch`.
+
+`examples/errores` contiene programas diseñados para comprobar el manejo de errores léxicos, sintácticos y semánticos.
 
 ---
 
 ## Requisitos
 
-Se necesita:
-
-- Java 17 o superior
-- Maven 3.9 o superior
+- Java 17 o superior.
+- Maven 3.9 o superior.
 
 Verifica las instalaciones con:
 
@@ -384,7 +265,7 @@ mvn -version
 
 ---
 
-## Instalación
+## Instalación y ejecución
 
 Clona el repositorio:
 
@@ -393,7 +274,7 @@ git clone https://github.com/Anaru03/Cps-semantic.git
 cd Cps-semantic
 ```
 
-Para trabajar con el Proyecto 2:
+Cambia a la rama del Proyecto 2:
 
 ```bash
 git switch proyecto-2-tac
@@ -405,66 +286,58 @@ Compila:
 mvn clean compile
 ```
 
-Una compilación correcta finaliza con:
+Ejecuta las pruebas:
 
-```text
-BUILD SUCCESS
+```bash
+mvn test
+```
+
+Ejecuta el IDE:
+
+```bash
+mvn exec:java
 ```
 
 ---
 
 ## Pruebas
 
-Para ejecutar toda la batería:
+El proyecto utiliza **JUnit 5** para validar las diferentes etapas del compilador.
+
+La batería de pruebas cubre, entre otros:
+
+- Análisis semántico.
+- Tabla de símbolos.
+- Operadores y expresiones.
+- Generación TAC.
+- Temporales y etiquetas.
+- Asignaciones.
+- Condicionales.
+- Ciclos.
+- `foreach`.
+- `switch`.
+- Funciones.
+- Recursión.
+- Registros de activación.
+- Arreglos y clases.
+- Integración del compilador.
+- Visualización del árbol sintáctico.
+
+Para ejecutar toda la suite:
 
 ```bash
-mvn test
+mvn clean test
 ```
 
-Estado actual:
+La versión actual contiene **274 pruebas automatizadas**.
+
+Antes de una entrega se espera:
 
 ```text
-Tests run: 242
 Failures: 0
 Errors: 0
-Skipped: 0
-
 BUILD SUCCESS
 ```
-
-Las pruebas incluyen tanto la infraestructura heredada del análisis semántico como la generación de código intermedio.
-
-### Pruebas TAC
-
-Actualmente se incluyen:
-
-```text
-AdministradorTemporalesTest
-AsignacionesTACTest
-GeneradorExpresionesTACTest
-GeneradorTACTest
-InstruccionTACTest
-```
-
-En conjunto cubren:
-
-- Representación de instrucciones TAC
-- Operaciones binarias
-- Operaciones unarias
-- Literales
-- Identificadores
-- Aritmética
-- Operaciones lógicas
-- Comparaciones
-- Igualdad
-- Precedencia
-- Paréntesis
-- Declaraciones
-- Asignaciones
-- Creación de temporales
-- Liberación de temporales
-- Reutilización de temporales
-- Expresiones compuestas
 
 Para ejecutar únicamente las pruebas TAC:
 
@@ -472,27 +345,21 @@ Para ejecutar únicamente las pruebas TAC:
 mvn -Dtest="tac.*Test" test
 ```
 
-También puede ejecutarse una clase individual:
+También puede ejecutarse una clase específica:
 
 ```bash
 mvn -Dtest=GeneradorExpresionesTACTest test
-```
-
-o un caso específico:
-
-```bash
-mvn -Dtest=GeneradorExpresionesTACTest#respetaParentesis test
 ```
 
 ---
 
 ## Documentación
 
-La documentación técnica se encuentra en:
+La documentación técnica adicional se encuentra en:
 
-- [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — arquitectura del analizador.
-- [`docs/TAC.md`](docs/TAC.md) — diseño de la representación intermedia TAC.
-- [`docs/INTEGRACION_PERSONA_3.md`](docs/INTEGRACION_PERSONA_3.md) — API, referencias de símbolos y entrega para integrar estructuras e IDE.
+- [`docs/TAC.md`](docs/TAC.md) — especificación y convenciones del código intermedio.
+- [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — arquitectura general del compilador.
+- [`docs/DIAGRAMA_ARBOL.md`](docs/DIAGRAMA_ARBOL.md) — visualización del árbol sintáctico.
 
 ---
 
@@ -502,32 +369,15 @@ La documentación técnica se encuentra en:
 
 Completado.
 
-Incluye:
+Incluye análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos, ámbitos, funciones, clases, arreglos, control de flujo y manejo de errores.
 
-```text
-Análisis léxico
-Análisis sintáctico
-Análisis semántico
-Sistema de tipos
-Tabla de símbolos
-Ámbitos
-Funciones
-Clases
-Arreglos
-Control de flujo
-Manejo de errores
-IDE
-```
+### Proyecto 2 — Generación de código intermedio
 
-### Proyecto 2 — Código intermedio
+Implementado.
 
-En desarrollo.
+Incluye generación TAC para expresiones y sentencias, temporales, etiquetas, control de flujo, funciones, recursión, registros de activación, arreglos, clases, objetos y estructuras de runtime.
 
-Actualmente se encuentra implementada la infraestructura base de TAC y la generación de código intermedio para expresiones, declaraciones y asignaciones, incluyendo administración y reciclaje de variables temporales.
-
-También se implementaron control de flujo, funciones y registros de activación con recursión, junto con la API `compiler.Compilador.compilar(codigo)`. La API devuelve errores, TAC, firmas, layouts y enlaces a símbolos.
-
-Quedan pendientes arreglos/clases, construcciones señaladas en `docs/TAC.md` y la visualización TAC del IDE. El contrato de integración se encuentra en `docs/INTEGRACION_PERSONA_3.md`.
+El IDE integra las diferentes etapas y permite visualizar el código intermedio, árbol sintáctico, tabla de símbolos, errores y estructuras generadas durante la compilación.
 
 ---
 
@@ -543,20 +393,3 @@ Quedan pendientes arreglos/clases, construcciones señaladas en `docs/TAC.md` y 
   <b>Universidad del Valle de Guatemala</b><br/>
   Construcción de Compiladores
 </p>
-
----
-
-## Uso del IDE (Proyecto 2)
-
-```bash
-mvn compile exec:java -Dexec.mainClass=ide.CompiscriptIDE      # o: ejecutar ide.CompiscriptIDE desde el IDE de Java
-```
-
-1. **Abrir…** selecciona un archivo `.cps` desde el selector gráfico (también se puede escribir en el editor).
-2. **Compilar** (o Ctrl+Enter) ejecuta léxico → sintaxis → semántica → TAC.
-3. Pestañas: **Errores** (clic en un error salta a su línea), **Código intermedio (TAC)**, **Árbol sintáctico** (diagrama con nodos y conexiones, zoom, búsqueda y plegado),
-   **Tabla de símbolos** (con tipo, ámbito, offset, etiqueta y tamaño) y **Registros y clases** (layout de registros de activación y objetos).
-
-Ejemplos en `examples/tac` (programas válidos) y `examples/errores` (errores léxicos, sintácticos y semánticos).
-Pruebas: `mvn test` (incluye `CompletoTACTest`, que ejecuta el TAC con un intérprete de prueba para verificar comportamiento).
-Documentación: `docs/TAC.md` (lenguaje intermedio), `docs/ARQUITECTURA.md`, `docs/DIAGRAMA_ARBOL.md`.

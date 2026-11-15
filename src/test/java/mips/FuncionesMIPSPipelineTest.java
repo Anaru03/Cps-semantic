@@ -2,13 +2,10 @@ package mips;
 
 import compiler.Compilador;
 import compiler.ResultadoCompilacion;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,13 +19,7 @@ class FuncionesMIPSPipelineTest {
     }
 
     private static String ejecutarEnMars(String asm) throws Exception {
-        String jar = System.getenv("MARS_JAR");
-        Assumptions.assumeTrue(jar != null && new File(jar).exists(), "MARS_JAR no configurado");
-        Path f = Files.createTempFile("p3", ".asm");
-        Files.writeString(f, asm);
-        Process p = new ProcessBuilder("java", "-jar", jar, "nc", f.toString()).redirectErrorStream(true).start();
-        assertTrue(p.waitFor(30, TimeUnit.SECONDS));
-        return new String(p.getInputStream().readAllBytes()).replace("\r", "");
+        return MarsTestSupport.ejecutar(asm);
     }
 
     @Test
@@ -85,5 +76,29 @@ class FuncionesMIPSPipelineTest {
     @Test
     void ejecucionMarsRecursionConLocales() throws Exception {
         assertEquals("15\n6\n", ejecutarEnMars(asm("examples/mips/recursion_locales.cps")));
+    }
+
+    @Test
+    void ejecucionMarsConservaGlobalesConRetornoExplicito() throws Exception {
+        ResultadoCompilacion r = Compilador.compilar("""
+                let total: integer = 0;
+                function incrementar(): integer {
+                    total = total + 1;
+                    return total;
+                }
+                function fijar() {
+                    total = 40;
+                    return;
+                }
+                print(incrementar());
+                print(total);
+                fijar();
+                print(total);
+                print(incrementar());
+                print(total);
+                """);
+        assertTrue(r.esValido(), r.errores().toString());
+        assertEquals("1\n1\n40\n41\n41\n",
+                ejecutarEnMars(TraductorTACProvisional.traducir(r)));
     }
 }

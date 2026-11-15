@@ -1,14 +1,28 @@
 package mips;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assumptions;
-import java.io.File;
-import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GeneradorFuncionesMIPSTest {
+
+    @Test
+    void retornoGuardaGlobalModificadaAntesDeSaltarAlEpilogo() {
+        for (String retorno : Arrays.asList(null, "total", "7")) {
+            GeneradorFuncionesMIPS g = new GeneradorFuncionesMIPS();
+            g.iniciarFuncion("actualizar", List.of(), List.of());
+            g.copiar("total", "42");
+            g.retorno(retorno);
+            g.finFuncion();
+            g.iniciarMain(List.of());
+            g.finFuncion();
+            String asm = g.ensamblar();
+            int inicio = asm.indexOf("func_actualizar:");
+            int guardado = asm.indexOf("sw $t0, g_total", inicio);
+            int salto = asm.indexOf("j func_actualizar_epilogo", inicio);
+            assertTrue(guardado > inicio && guardado < salto, asm);
+        }
+    }
 
     @Test
     void factorialGeneraSecuenciaDeLlamadaYRetorno() {
@@ -63,14 +77,6 @@ class GeneradorFuncionesMIPSTest {
     /** Ejecuta en MARS si existe: MARS_JAR=/ruta/Mars4_5.jar mvn test */
     @Test
     void ejecucionEnMarsFactorialYSuma6() throws Exception {
-        String jar = System.getenv("MARS_JAR");
-        Assumptions.assumeTrue(jar != null && new File(jar).exists(), "MARS_JAR no configurado");
-        Path asm = Files.createTempFile("fact", ".asm");
-        Files.writeString(asm, DemoFactorial.generar());
-        Process p = new ProcessBuilder("java", "-jar", jar, "nc", asm.toString())
-                .redirectErrorStream(true).start();
-        assertTrue(p.waitFor(30, TimeUnit.SECONDS));
-        String out = new String(p.getInputStream().readAllBytes()).replace("\r", "");
-        assertEquals("120\n21\n", out);
+        assertEquals("120\n21\n", MarsTestSupport.ejecutar(DemoFactorial.generar()));
     }
 }

@@ -98,3 +98,12 @@ Compilador.compilar(fuente)
 * `tac.GeneradorTAC`: emisor compartido, temporales, etiquetas, registros de activación, enlaces de símbolos y clases.
 * `tac.DescriptorClase`: layout de objetos y tabla de métodos. `tac.AnotadorSimbolos`: direcciones y etiquetas en `Simbolo`.
 * `ide.CompiscriptIDE` consume únicamente `Compilador.compilar` y muestra el resultado en `PanelesCompilacion`, `DiagramaArbol` y `TablaSimbolosPanel`.
+
+## Backend MIPS del Proyecto 3
+
+`GeneradorMIPS.generar(ResultadoCompilacion)` extiende el pipeline con traducción
+TAC → MIPS32 → mirilla. La fachada devuelve ensamblador y diagnósticos propios;
+si hay errores no entrega código parcial. El runtime cubre arreglos, objetos,
+herencia y excepciones, reutilizando los layouts y firmas del TAC.
+Consultar [MIPS_INTEGRACION_RUTH.md](MIPS_INTEGRACION_RUTH.md) para las APIs,
+representaciones, convención de excepciones y verificación en MARS.

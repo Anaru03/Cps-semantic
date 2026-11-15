@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" />
   <img src="https://img.shields.io/badge/JUnit-5-green?style=for-the-badge&logo=junit5&logoColor=white" />
   <img src="https://img.shields.io/badge/TAC-Three--Address%20Code-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/status-finalizado-brightgreen?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Proyecto_3-integracion_MIPS-blue?style=for-the-badge" />
 </p>
 
 <p align="center">
@@ -15,10 +15,27 @@
 </p>
 
 <p align="center">
-  <b>Estado del proyecto: Finalizado</b>
+  <b>Proyectos 1 y 2 finalizados · Proyecto 3: backend MIPS disponible, integración IDE pendiente</b>
 </p>
 
 ---
+
+## Proyecto 3 — backend MIPS
+
+En `proyecto-3-mips` están disponibles registros y funciones, runtime de arreglos,
+objetos/herencia, llamadas virtuales, try/catch y nueve reglas de mirilla.
+La generación consume el TAC existente y se valida en MARS 4.5.
+
+```sh
+./scripts/verificar-mips.sh
+```
+
+Este comando prepara MARS, ejecuta las pruebas y guarda ensambladores y evidencia
+comparada en `target/mips/`. Para la integración del IDE de Ruth, consultar
+[el contrato y los ejemplos de uso](docs/MIPS_INTEGRACION_RUTH.md).
+La fachada pública es `new GeneradorMIPS().generar(resultadoCompilacion)`;
+los errores producen código vacío. El documento detalla representaciones,
+convenciones y las operaciones básicas todavía no soportadas.
 
 ## Descripción
 

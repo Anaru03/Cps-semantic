@@ -36,5 +36,6 @@ El proceso usa modo sin ventana, códigos de error de ensamblado/ejecución,
 límite de instrucciones y timeout. La salida se compara con valores esperados.
 
 Validación del 14 de noviembre de 2026: MARS 4.5, sin delayed branching.
-La integración definitiva del traductor y del IDE corresponde al módulo de Ruth;
-arreglos, objetos, excepciones y mirilla quedan pendientes para el módulo de Jorge.
+Arreglos, objetos, excepciones y mirilla están implementados en el módulo de Jorge.
+La API pública, las pruebas reproducibles y lo pendiente del IDE se documentan en
+[MIPS_INTEGRACION_RUTH.md](MIPS_INTEGRACION_RUTH.md).

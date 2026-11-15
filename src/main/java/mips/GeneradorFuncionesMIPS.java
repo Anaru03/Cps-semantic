@@ -166,6 +166,9 @@ public class GeneradorFuncionesMIPS {
             }
             regs.liberarBloqueos();
         }
+        // Las globales modificadas deben ser visibles para el llamador también
+        // cuando el retorno evita el flush de finFuncion().
+        regs.sincronizar();
         emitir("j " + marco.etiquetaEpilogo());
         regs.descartar(); // lo que sigue es inalcanzable hasta la próxima etiqueta
     }

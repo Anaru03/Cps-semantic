@@ -9,7 +9,15 @@ import static org.junit.jupiter.api.Assertions.*;
 final class MarsTestSupport {
     private MarsTestSupport() { }
 
+    record Ejecucion(int codigo, String salida) { }
+
     static String ejecutar(String asm) throws Exception {
+        var r = ejecutarResultado(asm);
+        assertEquals(0, r.codigo(), r.salida());
+        return r.salida();
+    }
+
+    static Ejecucion ejecutarResultado(String asm) throws Exception {
         String jar = System.getenv("MARS_JAR");
         Assumptions.assumeTrue(jar != null && Files.isRegularFile(Path.of(jar)),
                 "MARS_JAR no configurado");
@@ -24,9 +32,8 @@ final class MarsTestSupport {
                     .redirectErrorStream(true).redirectOutput(salida.toFile()).start();
             assertTrue(proceso.waitFor(30, TimeUnit.SECONDS), "MARS excedió 30 segundos");
             String texto = Files.readString(salida).replace("\r", "");
-            assertEquals(0, proceso.exitValue(), texto);
             // MARS agrega una línea vacía al terminar la simulación.
-            return texto.replaceFirst("\\n\\n$", "\n");
+            return new Ejecucion(proceso.exitValue(), texto.replaceFirst("\\n\\n$", "\n"));
         } finally {
             if (proceso != null && proceso.isAlive()) {
                 proceso.destroyForcibly().waitFor();

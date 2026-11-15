@@ -62,9 +62,9 @@ class FuncionesMIPSPipelineTest {
     }
 
     @Test
-    void construccionesPendientesDanErrorExplicito() throws Exception {
+    void arreglosGeneranAccesosComprobados() throws Exception {
         ResultadoCompilacion r = Compilador.compilar(Files.readString(Path.of("examples/tac/arreglos.cps")));
-        assertThrows(GeneracionMIPSException.class, () -> TraductorTACProvisional.traducir(r));
+        assertTrue(TraductorTACProvisional.traducir(r).contains("__rt_index"));
     }
 
     @Test

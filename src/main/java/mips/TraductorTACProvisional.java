@@ -7,10 +7,10 @@ import tac.RegistroActivacion;
 import java.util.*;
 
 /**
- * Puente TAC -> MIPS mínimo para ejercitar funciones y recursividad con el pipeline real.
- * Ruth es dueña de TraductorTAC/GeneradorMIPS: cuando exista, su bucle principal debe
- * (1) separar las funciones como aquí y (2) delegar FUNCION, ARGUMENTO, LLAMADA, RETORNO y
- * la asignación de registros en GeneradorFuncionesMIPS. Este archivo se puede borrar entonces.
+ * Puente de integración TAC -> MIPS para probar los módulos de Alejandro y Jorge.
+ * GeneradorMIPS ofrece la API pública con diagnósticos y mirilla. Ruth puede sustituir
+ * este bucle por TraductorTAC conservando la delegación a GeneradorFuncionesMIPS y
+ * GeneradorEstructurasMIPS; ver docs/MIPS_INTEGRACION_RUTH.md.
  *
  * Particularidades del TAC del Proyecto 2 que se resuelven aquí:
  *  - Las funciones van incrustadas en el flujo, saltadas por "goto Lk ... Lk:" -> se extraen
@@ -48,22 +48,25 @@ public final class TraductorTACProvisional {
                     break;
                 case CLASE:
                 case FIN_CLASE:
-                    break; // metadatos; los objetos los cubre el módulo de Jorge
+                    break; // layouts consumidos por GeneradorEstructurasMIPS
                 default:
                     (actual == null ? main : funciones.get(actual)).add(x);
             }
         }
 
         GeneradorFuncionesMIPS g = new GeneradorFuncionesMIPS();
+        GeneradorEstructurasMIPS estructuras = new GeneradorEstructurasMIPS(g, resultado);
         for (Map.Entry<String, List<InstruccionTAC>> e : funciones.entrySet()) {
             RegistroActivacion layout = resultado.registros().get(e.getKey());
             if (layout == null) throw new GeneracionMIPSException("Función sin registro de activación: " + e.getKey());
             g.iniciarFuncion(layout, parametros(e.getValue()));
-            for (InstruccionTAC x : e.getValue()) traducir(g, x);
+            estructuras.iniciarAmbito(e.getKey());
+            for (InstruccionTAC x : e.getValue()) traducir(g, estructuras, x);
             g.finFuncion();
         }
         g.iniciarMain(List.of());
-        for (InstruccionTAC x : main) traducir(g, x);
+        estructuras.iniciarAmbito(null);
+        for (InstruccionTAC x : main) traducir(g, estructuras, x);
         g.finFuncion();
         return g.ensamblar();
     }
@@ -90,7 +93,9 @@ public final class TraductorTACProvisional {
         return new ArrayList<>(porIndice.values());
     }
 
-    private static void traducir(GeneradorFuncionesMIPS g, InstruccionTAC x) {
+    private static void traducir(GeneradorFuncionesMIPS g, GeneradorEstructurasMIPS estructuras, InstruccionTAC x) {
+        if (estructuras.traducir(x)) return;
+        estructuras.validarBasica(x);
         switch (x.tipo()) {
             case PARAMETRO:         break;
             case ETIQUETA:          g.etiqueta(x.resultado()); break;
@@ -98,11 +103,11 @@ public final class TraductorTACProvisional {
             case SALTO_CONDICIONAL: g.saltoSiVerdadero(x.argumento1(), x.resultado()); break;
             case ARGUMENTO:         g.argumento(x.argumento1()); break;
             case RETORNO:           g.retorno(x.argumento1()); break;
-            case IMPRIMIR:          g.imprimir(x.argumento1()); break;
+            case IMPRIMIR:
+                if (estructuras.tipo(x.argumento1()).equals("string")) g.imprimirCadena(x.argumento1());
+                else g.imprimir(x.argumento1());
+                break;
             case LLAMADA:
-                if (x.operador().equals("vcall")) {
-                    throw new GeneracionMIPSException("vcall pendiente (módulo de objetos): " + x);
-                }
                 g.llamada(x.resultado(), GeneradorFuncionesMIPS.etiquetaDe(x.argumento1()),
                         Integer.parseInt(x.argumento2()));
                 break;
@@ -114,5 +119,6 @@ public final class TraductorTACProvisional {
             default:
                 throw new GeneracionMIPSException("Instrucción TAC sin traducción MIPS todavía: " + x);
         }
+        estructuras.observar(x);
     }
 }

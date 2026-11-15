@@ -33,6 +33,9 @@ public class GeneradorFuncionesMIPS {
     private MarcoPilaMIPS marco;
     private AsignadorRegistros regs;
     private List<String> cuerpo;
+    private boolean runtime;
+
+    public void habilitarRuntime() { runtime = true; }
 
     public GeneradorFuncionesMIPS() {
         this(n -> n.matches("t\\d+"));
@@ -117,6 +120,21 @@ public class GeneradorFuncionesMIPS {
     }
 
     public void llamada(String destino, String etiquetaFuncion, int numArgs) {
+        llamada(destino, etiquetaFuncion, numArgs, null, false);
+    }
+
+    public void llamadaMetodo(String destino, String etiquetaFuncion, int numArgs) {
+        llamada(destino, etiquetaFuncion, numArgs, null, true);
+    }
+
+    /** El receptor ocupa argumento 0; ranura es un índice lógico de vtable. */
+    public void llamadaVirtual(String destino, int numArgs, int ranura) {
+        if (!runtime || numArgs < 1 || ranura < 0)
+            throw new GeneracionMIPSException("Llamada virtual inválida");
+        llamada(destino, null, numArgs, ranura, true);
+    }
+
+    private void llamada(String destino, String etiquetaFuncion, int numArgs, Integer ranura, boolean receptor) {
         requerirFuncion();
         if (argumentosPendientes.size() < numArgs) {
             throw new GeneracionMIPSException("LLAMADA a " + etiquetaFuncion + " espera " + numArgs
@@ -146,7 +164,13 @@ public class GeneradorFuncionesMIPS {
         }
 
         regs.preLlamada();
-        emitir("jal " + etiquetaFuncion);
+        if (runtime && receptor) emitir("beq $a0, $zero, __rt_null");
+        if (ranura == null) emitir("jal " + etiquetaFuncion);
+        else {
+            emitir("lw $v1, 0($a0)");
+            emitir("lw $v1, " + (ranura * 4) + "($v1)");
+            emitir("jalr $v1");
+        }
         if (extra > 0) emitir("addiu $sp, $sp, " + extra * MarcoPilaMIPS.PALABRA);
 
         if (destino != null) {
@@ -238,7 +262,9 @@ public class GeneradorFuncionesMIPS {
 
     public void binaria(String op, String dst, String a, String b) {
         requerirFuncion();
+        if (runtime && (op.equals("/") || op.equals("%"))) regs.invalidar();
         String ra = regs.getReg(a), rb = regs.getReg(b), rd = regs.getRegDestino(dst);
+        if (runtime && (op.equals("/") || op.equals("%"))) emitir("beq " + rb + ", $zero, __rt_div");
         switch (op) {
             case "+":  emitir("addu " + rd + ", " + ra + ", " + rb); break;
             case "-":  emitir("subu " + rd + ", " + ra + ", " + rb); break;
@@ -273,6 +299,20 @@ public class GeneradorFuncionesMIPS {
         }
     }
 
+    /** Imprime una referencia de cadena, incluyendo valores de campos y retornos. */
+    public void imprimirCadena(String operando) {
+        if (runtime) regs.invalidar();
+        String r = regs.getReg(operando);
+        if (runtime) emitir("beq " + r + ", $zero, __rt_null");
+        emitir("move $a0, " + r);
+        regs.liberarBloqueos();
+        emitir("li $v0, 4");
+        emitir("syscall");
+        emitir("li $a0, 10");
+        emitir("li $v0, 11");
+        emitir("syscall");
+    }
+
     /** print(entero) con salto de línea (syscalls 1 y 11 de MARS). */
     public void imprimirEntero(String operando) {
         requerirFuncion();
@@ -302,9 +342,11 @@ public class GeneradorFuncionesMIPS {
         sb.append(".data\n");
         for (String g : globales) sb.append(MarcoPilaMIPS.etiquetaGlobal(g)).append(": .word 0\n");
         for (String d : datos) sb.append(d).append('\n');
+        if (runtime) sb.append(RuntimeMIPS.datos());
         sb.append("\n.text\n.globl main\n");
         volcar(sb, textoMain);
         volcar(sb, textoFunciones);
+        if (runtime) sb.append(RuntimeMIPS.texto());
         return sb.toString();
     }
 

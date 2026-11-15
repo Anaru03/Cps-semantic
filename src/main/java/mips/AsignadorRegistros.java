@@ -70,6 +70,8 @@ public class AsignadorRegistros {
 
     /** getReg() para un operando FUENTE: devuelve un registro que contiene su valor. */
     public String getReg(String op) {
+        if (op.matches("-?\\d+\\.\\d+"))
+            throw new GeneracionMIPSException("El backend entero MIPS todavía no soporta float: " + op);
         if (esCadena(op)) {
             String clave = "#lit" + (contLiterales++);
             String r = reservar(clave);

@@ -37,6 +37,7 @@ import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.function.Consumer;
+import mips.GeneradorMIPS;
 
 public final class CompiscriptIDE extends JFrame {
 
@@ -59,6 +60,8 @@ public final class CompiscriptIDE extends JFrame {
 
     private final PanelesCompilacion.Estructuras estructuras =
             new PanelesCompilacion.Estructuras();
+
+    private final PanelMIPS panelMIPS = new PanelMIPS();
 
     private final JTabbedPane pestanas = new JTabbedPane();
 
@@ -360,6 +363,8 @@ public final class CompiscriptIDE extends JFrame {
                 "Runtime",
                 estructuras
         );
+
+        pestanas.addTab("MIPS", panelMIPS);
     }
 
     private void configurarPanelArbol() {
@@ -569,7 +574,7 @@ public final class CompiscriptIDE extends JFrame {
 
         JLabel subtitulo =
                 new JLabel(
-                        "Análisis y generación de código intermedio TAC"
+                        "Análisis, código intermedio TAC y ensamblador MIPS"
                 );
 
         subtitulo.setFont(
@@ -1110,123 +1115,65 @@ public final class CompiscriptIDE extends JFrame {
         }
     }
 
-    private void compilar(
-            ActionEvent evento) {
-
+    private void compilar(ActionEvent evento) {
+        // Nunca conservar ensamblador de una compilación anterior.
+        panelMIPS.limpiar("Generando código MIPS...");
         try {
-            ResultadoCompilacion resultado =
-                    Compilador.compilar(
-                            editor.getText()
-                    );
+            ResultadoCompilacion resultado = Compilador.compilar(editor.getText());
+            errores.mostrar(resultado);
 
-            errores.mostrar(
-                    resultado
-            );
-
-            if (
-                    resultado.arbol()
-                            != null
-            ) {
-                arbolSintactico.mostrar(
-                        resultado.arbol()
-                );
-
+            if (resultado.arbol() != null) {
+                arbolSintactico.mostrar(resultado.arbol());
                 arbolDisponible = true;
-
-                botonVerArbol.setEnabled(
-                        true
-                );
-
-                resumenArbol.setText(
-                        "Árbol generado correctamente."
-                );
+                botonVerArbol.setEnabled(true);
+                resumenArbol.setText("Árbol generado correctamente.");
             } else {
                 arbolDisponible = false;
-
-                botonVerArbol.setEnabled(
-                        false
-                );
-
-                resumenArbol.setText(
-                        "No se pudo generar el árbol sintáctico."
-                );
+                botonVerArbol.setEnabled(false);
+                resumenArbol.setText("No se pudo generar el árbol sintáctico.");
             }
 
-            if (
-                    resultado.analisis()
-                            != null
-            ) {
-                tablaSimbolos.mostrar(
-                        resultado.analisis()
-                );
+            if (resultado.analisis() != null) {
+                tablaSimbolos.mostrar(resultado.analisis());
             } else {
-                tablaSimbolos.limpiar(
-                        "No disponible: hay errores léxicos o sintácticos"
-                );
+                tablaSimbolos.limpiar("No disponible: hay errores léxicos o sintácticos");
             }
 
-            if (
-                    resultado.esValido()
-            ) {
-                codigoIntermedio.mostrar(
-                        resultado
-                );
-
-                estructuras.mostrar(
-                        resultado
-                );
-
-                estado.setForeground(
-                        VERDE
-                );
-
-                estado.setText(
-                        "● Compilación exitosa"
-                );
-
-                pestanas.setSelectedComponent(
-                        codigoIntermedio
-                );
-
-            } else {
-                codigoIntermedio.limpiar(
-                        "No se genera código intermedio mientras existan errores."
-                );
-
+            if (!resultado.esValido()) {
+                codigoIntermedio.limpiar("No se genera TAC mientras existan errores.");
                 estructuras.limpiar();
-
-                estado.setForeground(
-                        ROJO
-                );
-
-                estado.setText(
-                        "● "
-                                + resultado
-                                .errores()
-                                .size()
-                                + " error(es)"
-                );
-
-                pestanas.setSelectedComponent(
-                        errores
-                );
+                panelMIPS.limpiar("No se genera MIPS mientras existan errores léxicos, sintácticos o semánticos.");
+                estado.setForeground(ROJO);
+                estado.setText("● " + resultado.errores().size() + " error(es)");
+                pestanas.setSelectedComponent(errores);
+                return;
             }
 
-        } catch (
-                Exception ex
-        ) {
-            errores.mensaje(
-                    "Error inesperado: "
-                            + ex
-            );
+            codigoIntermedio.mostrar(resultado);
+            estructuras.mostrar(resultado);
 
-            estado.setForeground(
-                    ROJO
-            );
+            // El ensamblador se obtiene exclusivamente del TAC validado.
+            GeneradorMIPS.Resultado mips = new GeneradorMIPS().generar(resultado);
+            panelMIPS.mostrar(mips);
 
-            estado.setText(
-                    " Error inesperado"
-            );
+            if (mips.esValido()) {
+                estado.setForeground(VERDE);
+                estado.setText("● Compilación TAC y MIPS exitosa");
+                pestanas.setSelectedComponent(panelMIPS);
+            } else {
+                // TAC válido, pero el backend no soportó alguna construcción.
+                estado.setForeground(ROJO);
+                estado.setText("● TAC generado; MIPS no disponible");
+                pestanas.setSelectedComponent(panelMIPS);
+            }
+        } catch (Exception ex) {
+            codigoIntermedio.limpiar("No se pudo completar la compilación.");
+            estructuras.limpiar();
+            panelMIPS.limpiar("No se pudo completar la generación MIPS.");
+            errores.mensaje("Error inesperado: " + ex);
+            estado.setForeground(ROJO);
+            estado.setText("● Error inesperado");
+            pestanas.setSelectedComponent(errores);
         }
     }
 
@@ -1269,13 +1216,13 @@ public final class CompiscriptIDE extends JFrame {
             }
 
             function sumar(a: integer, b: integer): integer {
-              return a + b;
+              return a + b;s
             }
 
             let p = new Persona(20);
             let resultado: integer = sumar(2, 3);
             let xs: integer[] = [1, 2, 3];
-            let promedio: float = 1 + 2.5;
+            let promedio: integer = 1 + 2;
 
             if (p.esMayorDeEdad()) {
               print(resultado);

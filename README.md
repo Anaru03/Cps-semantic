@@ -1,303 +1,443 @@
-# Compiscript Compiler
+
+# Compiscript Compiler — Proyecto 03: Generación de ensamblador MIPS
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk&logoColor=white" />
-  <img src="https://img.shields.io/badge/ANTLR-4.13.2-red?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" />
-  <img src="https://img.shields.io/badge/JUnit-5-green?style=for-the-badge&logo=junit5&logoColor=white" />
-  <img src="https://img.shields.io/badge/TAC-Three--Address%20Code-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Proyecto_3-integracion_MIPS-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 17+" />
+  <img src="https://img.shields.io/badge/ANTLR-4.13.2-red?style=for-the-badge" alt="ANTLR 4.13.2" />
+  <img src="https://img.shields.io/badge/Maven-3.9%2B-blue?style=for-the-badge&logo=apachemaven&logoColor=white" alt="Maven 3.9+" />
+  <img src="https://img.shields.io/badge/MIPS-MARS%204.5-purple?style=for-the-badge" alt="MIPS MARS 4.5" />
+  <img src="https://img.shields.io/badge/Tests-327%20aprobados-success?style=for-the-badge" alt="327 pruebas aprobadas" />
+  <img src="https://img.shields.io/badge/STATUS-TERMINADO-brightgreen?style=for-the-badge" alt="Estado: Terminado" />
 </p>
 
 <p align="center">
-  <b>Compilador académico para el lenguaje Compiscript</b><br/>
-  Análisis léxico, sintáctico y semántico con generación de código intermedio TAC.
+  <b>Universidad del Valle de Guatemala</b><br/>
+  Construcción de Compiladores · Segundo semestre de 2026
 </p>
 
 <p align="center">
-  <b>Proyectos 1 y 2 finalizados · Proyecto 3: backend MIPS disponible, integración IDE pendiente</b>
+  Compilador académico para el lenguaje <b>Compiscript</b>, con análisis léxico, sintáctico y semántico, generación de código intermedio de tres direcciones (TAC), traducción a ensamblador MIPS, optimización por mirilla e interfaz gráfica desarrollada en Java Swing.
 </p>
 
 ---
 
-## Proyecto 3 — backend MIPS
+## Estado del proyecto
 
-En `proyecto-3-mips` están disponibles registros y funciones, runtime de arreglos,
-objetos/herencia, llamadas virtuales, try/catch y nueve reglas de mirilla.
-La generación consume el TAC existente y se valida en MARS 4.5.
+**ESTADO: FINALIZADO**
 
-```sh
-./scripts/verificar-mips.sh
-```
+Los tres proyectos desarrollados durante el curso se encuentran finalizados dentro del alcance implementado:
 
-Este comando prepara MARS, ejecuta las pruebas y guarda ensambladores y evidencia
-comparada en `target/mips/`. Para la integración del IDE de Ruth, consultar
-[el contrato y los ejemplos de uso](docs/MIPS_INTEGRACION_RUTH.md).
-La fachada pública es `new GeneradorMIPS().generar(resultadoCompilacion)`;
-los errores producen código vacío. El documento detalla representaciones,
-convenciones y las operaciones básicas todavía no soportadas.
+| Proyecto | Descripción | Estado |
+|---|---|---|
+| Proyecto 1 | Análisis léxico, sintáctico y semántico | Finalizado |
+| Proyecto 2 | Generación de código intermedio TAC | Finalizado |
+| Proyecto 3 | Generación de código ensamblador MIPS | Finalizado |
 
-## Descripción
+### Validación final
 
-**Compiscript Compiler** es un proyecto académico desarrollado para el curso de **Construcción de Compiladores** de la Universidad del Valle de Guatemala.
+**Fecha de validación:** 16 de noviembre de 2026.
 
-El proyecto implementa las principales etapas de análisis y generación de código intermedio para programas escritos en Compiscript.
+- 327 pruebas automatizadas aprobadas.
+- 0 fallos, 0 errores y 0 pruebas omitidas.
+- 6 programas de ejemplo MIPS verificados mediante MARS 4.5.
+- Generación de ensamblador desde el código TAC.
+- Optimización por mirilla con nueve reglas implementadas.
+- Seis transformaciones diferentes demostradas con `mirilla_demo.cps`.
+- Integración del generador MIPS en la interfaz gráfica.
+- Exportación de ensamblador a archivos `.asm`.
+- Ejecución de ensamblador mediante MARS.
+- Recuperación de múltiples errores sintácticos.
+- Bloqueo de generación TAC y MIPS cuando existen errores de análisis.
 
-El **Proyecto 1** construyó la base del compilador mediante análisis léxico, sintáctico y semántico, sistema de tipos, tabla de símbolos, ámbitos y validaciones del lenguaje.
+**Nota:** El proyecto está finalizado dentro de su alcance implementado y probado. Esto no implica soporte completo de todas las construcciones del lenguaje Compiscript.
 
-El **Proyecto 2** extiende esta infraestructura con generación de código intermedio utilizando **Three-Address Code (TAC)**, administración de temporales y etiquetas, control de flujo, funciones, registros de activación, arreglos, clases y estructuras necesarias para representar la ejecución del programa.
+---
 
-El flujo general del compilador es:
+## 1. Descripción general
+
+**Compiscript Compiler** es un compilador académico desarrollado para el curso de Construcción de Compiladores de la Universidad del Valle de Guatemala.
+
+El objetivo del Proyecto 3 es transformar programas escritos en Compiscript a código ensamblador MIPS utilizando como entrada la representación intermedia TAC desarrollada en el Proyecto 2.
+
+El compilador implementa las siguientes etapas:
+
+1. Análisis léxico mediante ANTLR.
+2. Análisis sintáctico y construcción del árbol.
+3. Análisis semántico y validación de tipos.
+4. Generación de código intermedio TAC.
+5. Traducción del TAC a ensamblador MIPS.
+6. Optimización del ensamblador mediante mirilla.
+7. Visualización y exportación desde el IDE.
+8. Ejecución del ensamblador mediante MARS 4.5.
+
+### Flujo del compilador
 
 ```text
-Código Compiscript
-        │
-        ▼
-      Lexer
-        │
-        ▼
-      Parser
-        │
-        ▼
-Árbol sintáctico
-        │
-        ▼
-Análisis semántico
-        │
-        ▼
-Tabla de símbolos
-        │
-        ▼
-Generación de código intermedio
-        │
-        ▼
-       TAC
+              CÓDIGO COMPISCRIPT (.cps)
+                         |
+                         v
+                  ANÁLISIS LÉXICO
+                      ANTLR
+                         |
+                         v
+                 ANÁLISIS SINTÁCTICO
+                         |
+                         v
+                  ÁRBOL SINTÁCTICO
+                         |
+                         v
+                  ANÁLISIS SEMÁNTICO
+                         |
+                  +------+------+
+                  |             |
+               ERRORES        VÁLIDO
+                  |             |
+                  v             v
+           MOSTRAR ERRORES   GENERACIÓN TAC
+                                |
+                                v
+                       CÓDIGO INTERMEDIO
+                                |
+                                v
+                       GENERADOR MIPS
+                                |
+                                v
+                      ENSAMBLADOR ORIGINAL
+                                |
+                                v
+                      OPTIMIZADOR MIRILLA
+                                |
+                                v
+                      ENSAMBLADOR MIPS
+                                |
+                                v
+                       ARCHIVO .asm
+                                |
+                                v
+                           MARS 4.5
+                                |
+                                v
+                       SALIDA DEL PROGRAMA
+```
+
+Si existen errores léxicos, sintácticos o semánticos, el compilador no genera TAC ni ensamblador MIPS.
+
+---
+
+## 2. Tecnologías utilizadas
+
+| Tecnología | Utilización |
+|---|---|
+| Java 17 | Implementación del compilador |
+| ANTLR 4.13.2 | Generación del lexer y parser |
+| Maven | Gestión de dependencias y compilación |
+| Java Swing | Interfaz gráfica |
+| TAC | Representación intermedia |
+| MIPS | Arquitectura ensamblador destino |
+| MARS 4.5 | Ensamblador y simulador |
+| JUnit 5 | Pruebas automatizadas |
+| Git y GitHub | Control de versiones |
+
+---
+
+## 3. Arquitectura del proyecto
+
+El código se organiza en módulos que representan las etapas del compilador.
+
+```text
+Cps-semantic/
+|
+|-- src/
+|   |-- main/
+|   |   |-- antlr4/
+|   |   |   `-- Compiscript.g4
+|   |   |
+|   |   `-- java/
+|   |       |-- compiler/
+|   |       |-- semantic/
+|   |       |-- tac/
+|   |       |-- mips/
+|   |       `-- ide/
+|   |
+|   `-- test/
+|       `-- java/
+|           |-- semantic/
+|           |-- tac/
+|           |-- mips/
+|           `-- ide/
+|
+|-- examples/
+|   `-- mips/
+|
+|-- scripts/
+|   |-- preparar-mars.sh
+|   `-- verificar-mips.sh
+|
+|-- docs/
+|
+|-- salidas/
+|   `-- mips/
+|
+|-- pom.xml
+`-- README.md
+```
+
+### Módulo `compiler`
+
+Integra las etapas del compilador y proporciona el resultado del análisis de un programa Compiscript.
+
+La clase principal de integración es:
+
+`compiler.Compilador`
+
+### Módulo `semantic`
+
+Implementa el análisis semántico, validación de tipos, manejo de ámbitos y tabla de símbolos.
+
+### Módulo `tac`
+
+Implementa la representación intermedia de tres direcciones.
+
+Incluye:
+
+- Instrucciones TAC.
+- Expresiones y asignaciones.
+- Control de flujo.
+- Funciones y parámetros.
+- Administración de temporales.
+- Etiquetas.
+- Registros de activación.
+- Arreglos.
+- Clases y herencia.
+- Manejo de excepciones.
+
+### Módulo `mips`
+
+Contiene el backend de generación de ensamblador MIPS.
+
+Entre sus componentes principales se encuentran:
+
+| Archivo | Responsabilidad |
+|---|---|
+| `GeneradorMIPS.java` | API principal de generación |
+| `TraductorTACProvisional.java` | Traducción desde la representación TAC |
+| `AsignadorRegistros.java` | Administración y asignación de registros |
+| `MarcoPilaMIPS.java` | Organización de los marcos de pila |
+| `GeneradorFuncionesMIPS.java` | Funciones, parámetros y retornos |
+| `GeneradorEstructurasMIPS.java` | Estructuras y operaciones del runtime |
+| `RuntimeMIPS.java` | Soporte de ejecución |
+| `OptimizadorMirilla.java` | Optimización del ensamblador |
+| `CompilarMIPS.java` | Punto de entrada para generación desde consola |
+
+### Módulo `ide`
+
+Contiene la interfaz gráfica del compilador.
+
+Los componentes principales son:
+
+- `CompiscriptIDE.java`
+- `PanelesCompilacion.java`
+- `PanelMIPS.java`
+- `DiagramaArbol.java`
+
+La interfaz permite visualizar las diferentes fases de compilación en un mismo entorno.
+
+---
+
+## 4. Generación de código ensamblador MIPS
+
+El Proyecto 3 utiliza la representación intermedia TAC del Proyecto 2 como entrada para la generación de ensamblador.
+
+La fachada pública del backend es:
+
+```java
+GeneradorMIPS generador = new GeneradorMIPS();
+
+GeneradorMIPS.Resultado resultadoMIPS =
+        generador.generar(resultadoCompilacion);
+```
+
+El resultado proporciona:
+
+- `codigo()`: ensamblador optimizado.
+- `sinOptimizar()`: ensamblador original.
+- `errores()`: problemas detectados durante la generación.
+- `optimizaciones()`: cantidad de aplicaciones por regla.
+- `esValido()`: indica si la generación terminó sin errores.
+
+Cuando el análisis falla, no se publica código ensamblador parcial.
+
+### Asignación de registros
+
+El backend incorpora un administrador de registros MIPS para traducir operaciones intermedias a instrucciones de bajo nivel.
+
+Se consideran los registros disponibles y las necesidades de almacenamiento de los operandos, utilizando registros y memoria según corresponda.
+
+### Registros de activación
+
+Se implementa el manejo de marcos de pila para permitir:
+
+- Llamadas a funciones.
+- Paso de parámetros.
+- Almacenamiento de variables locales.
+- Conservación del estado necesario.
+- Retorno de funciones.
+- Llamadas recursivas.
+
+La implementación se encuentra principalmente en `MarcoPilaMIPS.java` y `GeneradorFuncionesMIPS.java`.
+
+### Estructuras de datos
+
+El backend incluye soporte probado mediante ejemplos y pruebas automatizadas para:
+
+- Variables y constantes.
+- Operaciones aritméticas.
+- Arreglos.
+- Funciones.
+- Recursividad.
+- Clases y objetos.
+- Herencia.
+- Manejo de excepciones.
+
+El alcance exacto de cada construcción depende de las operaciones implementadas en el backend MIPS.
+
+---
+
+## 5. Optimización por mirilla
+
+El compilador implementa optimización por mirilla sobre el código ensamblador generado.
+
+Esta técnica examina pequeñas secuencias de instrucciones para identificar transformaciones que preservan el comportamiento del programa.
+
+El optimizador implementa nueve reglas:
+
+| Regla | Descripción |
+|---|---|
+| `move-identico` | Elimina movimientos de un registro hacia sí mismo |
+| `addiu-cero` | Simplifica sumas inmediatas con cero |
+| `addu-cero` | Simplifica sumas con el registro cero |
+| `subu-cero` | Simplifica restas de cero |
+| `or-cero` | Simplifica operaciones OR con cero |
+| `shift-cero` | Simplifica desplazamientos de cero posiciones |
+| `salto-siguiente` | Elimina saltos hacia la instrucción siguiente |
+| `li-repetido` | Elimina cargas inmediatas redundantes |
+| `li-cero` | Simplifica cargas inmediatas de cero |
+
+### Demostración de optimización
+
+El archivo:
+
+`examples/mips/mirilla_demo.cps`
+
+permite demostrar seis transformaciones diferentes.
+
+Para comprobarlas:
+
+1. Abrir el archivo desde Compiscript IDE.
+2. Presionar **Compilar**.
+3. Seleccionar la pestaña **MIPS**.
+4. Revisar el resumen de optimizaciones.
+5. Presionar **Ver sin optimizar**.
+6. Presionar **Ver optimizado**.
+
+La última validación confirmó seis reglas activadas.
+
+El resultado esperado al ejecutar el ensamblador en MARS es:
+
+```text
+7
+7
+0
+7
 ```
 
 ---
 
-## Características principales
+## 6. Interfaz gráfica
 
-El compilador incluye:
-
-- Análisis léxico y sintáctico mediante ANTLR.
-- Análisis semántico y sistema de tipos.
-- Tabla de símbolos y manejo de ámbitos.
-- Generación de código intermedio TAC.
-- Creación, liberación y reutilización de variables temporales.
-- Generación y administración de etiquetas.
-- Expresiones aritméticas, lógicas, relacionales y de igualdad.
-- Precedencia de operadores y expresiones entre paréntesis.
-- Declaraciones y asignaciones.
-- Condicionales `if/else`.
-- Ciclos `while`, `do-while`, `for` y `foreach`.
-- `break` y `continue`.
-- `switch`, `case` y `default`.
-- Funciones, parámetros, llamadas y valores de retorno.
-- Recursión y registros de activación.
-- Arreglos y acceso por índice.
-- Clases, objetos, atributos, constructores y `this`.
-- Herencia y llamadas a métodos.
-- Manejo de `try/catch`.
-- Instrucción `print`.
-- IDE gráfico desarrollado con Java Swing.
-- Visualización de errores, TAC, árbol sintáctico, tabla de símbolos y estructuras de runtime.
-
----
-
-## Código intermedio TAC
-
-El proyecto utiliza **Three-Address Code (TAC)** como representación intermedia.
-
-Por ejemplo, el código Compiscript:
-
-```cps
-let x: integer = a + b * c;
-```
-
-puede generar:
-
-```text
-t0 = b * c
-t1 = a + t0
-x = t1
-```
-
-La precedencia de operadores se obtiene del árbol sintáctico generado por ANTLR. El generador TAC recorre esta estructura y produce las instrucciones en el orden correspondiente.
-
-Por ejemplo:
-
-```cps
-(a + b) * c
-```
-
-genera:
-
-```text
-t0 = a + b
-t1 = t0 * c
-```
-
-### Temporales
-
-Los resultados intermedios utilizan variables temporales:
-
-```text
-t0
-t1
-t2
-...
-```
-
-`AdministradorTemporales` permite crear, liberar y reutilizar temporales cuando sus valores dejan de ser necesarios.
-
-Por ejemplo:
-
-```cps
-x = a + b;
-y = c + d;
-```
-
-puede generar:
-
-```text
-t0 = a + b
-x = t0
-t0 = c + d
-y = t0
-```
-
-De esta manera, un temporal puede reutilizarse cuando su valor anterior ya no es necesario.
-
-Las convenciones completas de la representación intermedia se encuentran en [`docs/TAC.md`](docs/TAC.md).
-
----
-
-## Arquitectura
-
-El proyecto se organiza principalmente en los siguientes módulos:
-
-```text
-src/main/
-├── antlr4/
-│   └── Compiscript.g4
-│
-└── java/
-    ├── compiler/
-    ├── ide/
-    ├── semantic/
-    └── tac/
-```
-
-### `semantic`
-
-Contiene el análisis semántico, sistema de tipos, tabla de símbolos, ámbitos y validaciones del lenguaje.
-
-### `tac`
-
-Contiene la representación y generación del código intermedio, administración de temporales y etiquetas, traducción de expresiones, sentencias, control de flujo, funciones y estructuras.
-
-### `compiler`
-
-Integra las diferentes etapas del compilador y permite ejecutar el pipeline completo desde código Compiscript hasta los resultados de compilación.
-
-### `ide`
-
-Contiene la interfaz gráfica y las diferentes visualizaciones del compilador.
-
----
-
-## IDE
-
-El proyecto incluye un IDE desarrollado con **Java Swing** para trabajar directamente con programas Compiscript.
+El proyecto incluye un IDE desarrollado con Java Swing.
 
 La interfaz permite:
 
-- Escribir código Compiscript.
-- Abrir archivos `.cps`.
-- Guardar programas.
-- Compilar mediante el botón `Compilar`.
-- Compilar mediante `Ctrl + Enter`.
-- Consultar errores léxicos, sintácticos y semánticos.
-- Visualizar el código intermedio TAC.
-- Consultar la tabla de símbolos.
-- Visualizar registros de activación y estructuras de clases.
-- Explorar el árbol sintáctico generado por ANTLR.
+- Escribir programas Compiscript.
+- Seleccionar archivos `.cps`.
+- Guardar código fuente.
+- Compilar programas.
+- Consultar errores.
+- Visualizar código TAC.
+- Explorar el árbol sintáctico.
+- Consultar símbolos.
+- Revisar estructuras de runtime.
+- Visualizar código ensamblador MIPS.
+- Comparar ensamblador optimizado y original.
+- Copiar ensamblador.
+- Exportar archivos `.asm`.
 
-Las vistas principales del IDE son:
+### Pestañas del IDE
 
-```text
-Problemas | TAC | Árbol | Símbolos | Runtime
-```
+| Pestaña | Funcionalidad |
+|---|---|
+| Problemas | Errores léxicos, sintácticos y semánticos |
+| TAC | Código intermedio de tres direcciones |
+| Árbol | Árbol sintáctico generado por ANTLR |
+| Símbolos | Tabla de símbolos |
+| Runtime | Registros de activación y estructuras |
+| MIPS | Código ensamblador y herramientas de exportación |
 
-### Visualización del árbol sintáctico
+### Controles principales
 
-El árbol sintáctico puede abrirse en una ventana independiente para facilitar la visualización de programas grandes.
+**Abrir…**
 
-La herramienta permite:
+Permite seleccionar un archivo Compiscript con extensión `.cps`.
 
-- Mostrar el árbol completo.
-- Expandir y plegar ramas.
-- Aplicar zoom.
-- Mostrar una vista panorámica.
-- Buscar nodos.
-- Centrar el árbol.
-- Desplazarse horizontal y verticalmente.
-- Seleccionar nodos y consultar su ubicación en el código.
+**Guardar**
 
-Para ejecutar el IDE:
+Guarda el código fuente del editor.
 
-```bash
-mvn exec:java
-```
+**Compilar**
 
-También puede utilizarse:
+Ejecuta el análisis y las fases de generación disponibles.
 
-```bash
-mvn compile exec:java -Dexec.mainClass=ide.CompiscriptIDE
-```
+**Ver sin optimizar**
 
----
+Muestra el ensamblador antes de aplicar las transformaciones de mirilla.
 
-## Ejemplos
+**Ver optimizado**
 
-Los programas utilizados para probar el compilador se encuentran en:
+Muestra el ensamblador después de aplicar las optimizaciones.
 
-```text
-examples/
-├── tac/
-└── errores/
-```
+**Copiar**
 
-### Programas válidos
+Copia el ensamblador mostrado al portapapeles.
 
-`examples/tac` contiene ejemplos para probar características como:
+**Guardar .asm**
 
-- Expresiones.
-- Condicionales.
-- Ciclos.
-- `foreach`.
-- `switch`.
-- Funciones.
-- Recursión.
-- Arreglos.
-- Clases y herencia.
-- Manejo de excepciones con `try/catch`.
+Exporta el ensamblador mostrado a un archivo compatible con MARS.
 
-### Programas con errores
+### Manejo de errores
 
-`examples/errores` contiene casos diseñados para comprobar la detección y presentación de errores léxicos, sintácticos y semánticos.
+Cuando se detectan errores léxicos, sintácticos o semánticos:
+
+- Se presentan los diagnósticos en la pestaña Problemas.
+- No se genera código TAC.
+- No se genera ensamblador MIPS.
+- Se eliminan los resultados de compilaciones anteriores.
+- Se deshabilitan las acciones de exportación de MIPS.
+
+La recuperación de errores permite reportar múltiples problemas durante una misma ejecución cuando el análisis puede continuar.
 
 ---
 
-## Requisitos
+## 7. Requisitos
 
 Para ejecutar el proyecto se necesita:
 
-- Java 17 o superior.
-- Maven 3.9 o superior.
+- JDK 17 o superior.
+- Maven.
+- Entorno gráfico compatible con Java Swing.
+- Acceso a MARS 4.5 para simular el ensamblador.
 
-Puedes verificar las instalaciones con:
+Verificar las herramientas instaladas:
 
 ```bash
 java -version
@@ -306,28 +446,29 @@ mvn -version
 
 ---
 
-## Instalación
+## 8. Instalación
 
-Clona el repositorio:
+Clonar el repositorio:
 
 ```bash
 git clone https://github.com/Anaru03/Cps-semantic.git
+
 cd Cps-semantic
 ```
 
-Cambia a la rama del Proyecto 2:
+Seleccionar la rama del Proyecto 3:
 
 ```bash
-git switch proyecto-2-tac
+git switch proyecto-3-mips
 ```
 
-Compila el proyecto:
+Compilar:
 
 ```bash
 mvn clean compile
 ```
 
-Una compilación correcta debe finalizar con:
+El resultado esperado es:
 
 ```text
 BUILD SUCCESS
@@ -335,76 +476,158 @@ BUILD SUCCESS
 
 ---
 
-## Ejecución
+## 9. Ejecutar Compiscript IDE
 
-Para abrir el IDE:
+Desde la raíz del proyecto:
 
 ```bash
 mvn exec:java
 ```
 
-El flujo normal de uso es:
+Se abrirá la interfaz gráfica del compilador.
 
-```text
-Escribir o abrir programa .cps
-              │
-              ▼
-           Compilar
-              │
-              ▼
-     Análisis del programa
-              │
-              ▼
-     Generación de código TAC
-              │
-              ▼
- Visualización de resultados
+### Ejemplo de uso
+
+1. Presionar **Abrir…**.
+2. Seleccionar `examples/mips/arreglos.cps`.
+3. Presionar **Compilar**.
+4. Revisar las pestañas Problemas y TAC.
+5. Seleccionar la pestaña MIPS.
+6. Presionar **Guardar .asm**.
+7. Guardar el archivo como `salidas/mips/arreglos.asm`.
+
+Crear previamente la carpeta de salida si es necesario:
+
+```bash
+mkdir -p salidas/mips
 ```
 
-Si existen errores, estos se muestran en la vista **Problemas**.
+Se recomienda utilizar `salidas/mips` para conservar los ensambladores.
 
-Si el programa es válido, el IDE permite consultar el TAC, árbol sintáctico, tabla de símbolos y estructuras de runtime.
+La carpeta `target/` es administrada por Maven y puede eliminarse al ejecutar `mvn clean`.
 
 ---
 
-## Pruebas
+## 10. Ejecutar ensamblador en MARS
 
-El proyecto utiliza **JUnit 5** para validar las diferentes etapas del compilador.
-
-La batería de pruebas cubre:
-
-- Análisis semántico.
-- Sistema de tipos.
-- Tabla de símbolos.
-- Operadores y expresiones.
-- Generación TAC.
-- Administración de temporales.
-- Administración de etiquetas.
-- Asignaciones.
-- Condicionales.
-- Ciclos.
-- `foreach`.
-- `switch`.
-- Funciones.
-- Recursión.
-- Registros de activación.
-- Arreglos.
-- Clases.
-- Integración del compilador.
-- IDE y visualización del árbol sintáctico.
-
-Para ejecutar toda la suite:
+Preparar MARS:
 
 ```bash
-mvn clean test
+bash scripts/preparar-mars.sh
 ```
 
-La versión actual contiene **274 pruebas automatizadas**.
+Ejecutar el ensamblador exportado:
 
-El resultado esperado es:
+```bash
+java -jar .cache/mars/Mars4_5.jar \
+  nc ae1 se2 1000000 \
+  salidas/mips/arreglos.asm
+```
+
+Salida esperada:
 
 ```text
-Tests run: 274
+13
+```
+
+Este resultado fue verificado ejecutando el archivo generado desde la interfaz gráfica.
+
+### Ejecutar el ejemplo de mirilla
+
+Guardar el ensamblador optimizado como:
+
+`salidas/mips/mirilla_demo.asm`
+
+Ejecutar:
+
+```bash
+java -jar .cache/mars/Mars4_5.jar \
+  nc ae1 se2 1000000 \
+  salidas/mips/mirilla_demo.asm
+```
+
+Salida esperada:
+
+```text
+7
+7
+0
+7
+```
+
+MARS es una herramienta externa. El IDE no necesita ejecutar directamente el ensamblador para generar código válido.
+
+---
+
+## 11. Generación MIPS desde consola
+
+También es posible utilizar el generador sin abrir el IDE.
+
+Crear la carpeta de salida:
+
+```bash
+mkdir -p salidas/mips
+```
+
+Ejecutar:
+
+```bash
+mvn -q exec:java \
+  -Dexec.mainClass=mips.CompilarMIPS \
+  -Dexec.args="examples/mips/arreglos.cps salidas/mips/arreglos.asm"
+```
+
+Después ejecutar el archivo generado con MARS:
+
+```bash
+java -jar .cache/mars/Mars4_5.jar \
+  nc ae1 se2 1000000 \
+  salidas/mips/arreglos.asm
+```
+
+---
+
+## 12. Programas de prueba
+
+Los programas de ejemplo del Proyecto 3 se encuentran en:
+
+`examples/mips/`
+
+| Programa | Objetivo |
+|---|---|
+| `arreglos.cps` | Arreglos, matrices y recorridos |
+| `funciones_recursion.cps` | Funciones, parámetros y recursividad |
+| `recursion_locales.cps` | Recursión y variables locales |
+| `objetos_herencia.cps` | Clases, objetos y herencia |
+| `excepciones.cps` | Manejo de excepciones |
+| `mirilla_demo.cps` | Optimizaciones por mirilla |
+
+Cada ejemplo dispone de un archivo `.expected` con su salida esperada.
+
+### Prueba de errores sintácticos
+
+Para comprobar la recuperación de errores, introducir en el editor:
+
+```cps
+let a: integer = ;
+let b: integer = ;
+let c: integer = 10;
+```
+
+Presionar **Compilar**.
+
+El compilador debe reportar los errores de las primeras dos líneas sin generar TAC ni MIPS.
+
+---
+
+## 13. Pruebas automatizadas
+
+El proyecto utiliza JUnit 5.
+
+La última ejecución completa, realizada el 16 de noviembre de 2026, produjo:
+
+```text
+Tests run: 327
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -412,95 +635,274 @@ Skipped: 0
 BUILD SUCCESS
 ```
 
-Para ejecutar únicamente las pruebas relacionadas con TAC:
+### Ejecutar todas las pruebas MIPS
+
+Desde la raíz del repositorio:
 
 ```bash
-mvn -Dtest="tac.*Test" test
+bash scripts/verificar-mips.sh
 ```
 
-Para ejecutar una clase específica:
+Este script:
 
-```bash
-mvn -Dtest=GeneradorExpresionesTACTest test
+1. Comprueba o prepara MARS.
+2. Compila el proyecto.
+3. Ejecuta las pruebas automatizadas.
+4. Genera ensambladores de los ejemplos.
+5. Ejecuta los programas mediante MARS.
+6. Compara las salidas con los archivos `.expected`.
+
+El resultado final esperado es:
+
+```text
+Pruebas y equivalencia MIPS verificadas.
 ```
 
-Para ejecutar un caso individual:
+La evidencia generada por el script se almacena en:
 
-```bash
-mvn -Dtest=GeneradorExpresionesTACTest#respetaParentesis test
-```
+`target/mips/`
+
+### Pruebas del backend MIPS
+
+Entre las clases de prueba se encuentran:
+
+- `AsignadorRegistrosTest`
+- `MarcoPilaMIPSTest`
+- `GeneradorFuncionesMIPSTest`
+- `FuncionesMIPSPipelineTest`
+- `EstructurasMIPSTest`
+- `GeneradorMIPSTest`
+- `OptimizadorMirillaTest`
+
+También se ejecutan las pruebas de los proyectos anteriores, correspondientes al análisis semántico, TAC e IDE.
 
 ---
 
-## Documentación
+## 14. Limitaciones conocidas
 
-La documentación técnica adicional se encuentra en:
+El backend MIPS está orientado principalmente a operaciones y representaciones enteras.
 
-- [`docs/TAC.md`](docs/TAC.md) — especificación y convenciones del código intermedio.
-- [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) — arquitectura general del compilador.
-- [`docs/DIAGRAMA_ARBOL.md`](docs/DIAGRAMA_ARBOL.md) — visualización del árbol sintáctico.
+Algunas construcciones del lenguaje Compiscript pueden ser aceptadas por el análisis y la generación TAC, pero todavía no disponer de traducción MIPS.
+
+Entre las limitaciones conocidas se encuentra:
+
+- Representación y operaciones `float` en el backend entero MIPS.
+- Determinadas operaciones de cadenas y construcciones no cubiertas por las pruebas MIPS disponibles.
+
+Cuando una construcción no es soportada, el generador debe informar el problema y evitar publicar ensamblador parcial como resultado válido.
+
+El compilador se considera finalizado dentro del alcance implementado y validado.
+
+---
+
+## 15. Documentación técnica
+
+Los documentos complementarios se encuentran en `docs/`.
+
+| Documento | Contenido |
+|---|---|
+| `ARQUITECTURA.md` | Arquitectura general del compilador |
+| `TAC.md` | Representación intermedia y convenciones |
+| `MIPS_FUNCIONES.md` | Generación de funciones y manejo de pila |
+| `MIPS_INTEGRACION_RUTH.md` | Contrato de integración con el IDE |
+| `DIAGRAMA_ARBOL.md` | Visualización del árbol sintáctico |
+
+Estos documentos complementan la explicación de los componentes y las decisiones de implementación.
 
 ---
 
-## Estado del proyecto
+## 16. Organización del repositorio
 
-> **Estado general: Finalizado**
+El desarrollo se mantiene en ramas separadas para conservar la evolución de los proyectos.
 
-El desarrollo correspondiente a los Proyectos 1 y 2 se encuentra completado.
+| Rama | Contenido |
+|---|---|
+| `main` | Proyecto 1: análisis semántico |
+| `proyecto-2-tac` | Proyecto 2: generación de TAC |
+| `proyecto-3-mips` | Proyecto 3: generación de MIPS e integración gráfica |
 
-### Proyecto 1 — Análisis semántico
+La rama principal para la entrega del Proyecto 3 es:
 
-**Estado: Finalizado**
-
-Incluye:
-
-- Análisis léxico.
-- Análisis sintáctico.
-- Análisis semántico.
-- Sistema de tipos.
-- Tabla de símbolos.
-- Manejo de ámbitos.
-- Funciones.
-- Clases.
-- Arreglos.
-- Control de flujo.
-- Manejo de errores.
-- IDE.
-
-### Proyecto 2 — Generación de código intermedio
-
-**Estado: Finalizado**
-
-Incluye:
-
-- Representación intermedia TAC.
-- Generación de TAC desde el árbol sintáctico.
-- Expresiones y asignaciones.
-- Administración y reutilización de temporales.
-- Administración de etiquetas.
-- Condicionales.
-- Ciclos.
-- `break` y `continue`.
-- `switch`.
-- Funciones, parámetros, llamadas y retornos.
-- Recursión.
-- Registros de activación.
-- Arreglos.
-- Clases y objetos.
-- Atributos y constructores.
-- `this`.
-- Herencia y llamadas a métodos.
-- Manejo de `try/catch`.
-- Integración con la tabla de símbolos.
-- Visualización de TAC en el IDE.
-- Visualización interactiva del árbol sintáctico.
-- Visualización de símbolos y estructuras de runtime.
-- Programas de ejemplo.
-- Pruebas automatizadas.
-
-El compilador permite recorrer el flujo desde un programa escrito en Compiscript hasta la generación y visualización de su representación intermedia.
+**`proyecto-3-mips`**
 
 ---
+
+## 17. Integrantes
+
+Proyecto desarrollado por:
+
+- **Ruth de León** — [Anaru03](https://github.com/Anaru03)
+- **Alejandro Antón** — [Anton17303](https://github.com/Anton17303)
+- **Jorge López** — [Jorge162017](https://github.com/Jorge162017)
+
+Las contribuciones individuales se encuentran registradas en el historial de commits de GitHub.
+
+---
+
+<p align="center">
+  <b>Universidad del Valle de Guatemala</b><br/>
+  Facultad de Ingeniería<br/>
+  Construcción de Compiladores<br/>
+  Segundo semestre de 2026
+</p>
+
+<p align="center">
+  <b>Proyecto 03 — Generación de código ensamblador MIPS</b><br/>
+  <b>ESTADO: FINALIZADO</b>
+</p>
+
+
+**Universidad del Valle de Guatemala · Construcción de Compiladores · Segundo semestre de 2026**
+
+Compilador académico de **Compiscript** con análisis léxico, sintáctico y semántico, generación de código de tres direcciones (**TAC**) y traducción a ensamblador **MIPS**, con optimización por mirilla e interfaz gráfica Java Swing.
+
+> **Estado verificado (16 de noviembre de 2026):** el IDE genera TAC y MIPS; los ejemplos probados se ejecutan en MARS 4.5. La última ejecución de `scripts/verificar-mips.sh` reportó **327 pruebas, 0 fallos, 0 errores y 0 omitidas**, además de equivalencia de los seis ejemplos MIPS. Esto no implica soporte total de todas las construcciones del lenguaje.
+
+## Inicio rápido
+
+**Requisitos:** JDK 17 o superior, Maven y entorno gráfico para Swing. MARS 4.5 se prepara mediante el script del repositorio.
+
+```bash
+git clone https://github.com/Anaru03/Cps-semantic.git
+cd Cps-semantic
+git switch proyecto-3-mips
+java -version
+mvn -version
+mvn clean compile
+mvn exec:java
+```
+
+En el IDE: **Abrir…** → `examples/mips/arreglos.cps` → **Compilar** → pestaña **MIPS** → **Guardar .asm**. Se recomienda guardar en `salidas/mips/arreglos.asm`.
+
+```bash
+mkdir -p salidas/mips
+bash scripts/preparar-mars.sh
+java -jar .cache/mars/Mars4_5.jar nc ae1 se2 1000000 salidas/mips/arreglos.asm
+```
+
+**Salida esperada:** `13`.
+
+> El archivo `.asm` no es un ejecutable nativo de Linux: MARS lo ensambla y simula. `mvn clean` elimina `target/`, por lo que los ensambladores que se quieran conservar deben guardarse en `salidas/mips/` u otra carpeta fuera de `target/`.
+
+## Flujo del compilador
+
+```text
+Archivo .cps seleccionado desde el IDE
+              |
+              v
+ANTLR: lexer y parser -> árbol sintáctico
+              |
+              v
+Análisis semántico y tabla de símbolos
+              |
+         ¿Hay errores? ---- Sí ---> Diagnósticos; sin TAC ni MIPS
+              |
+              No
+              v
+Generación de código de tres direcciones (TAC)
+              |
+              v
+Backend MIPS: registros, pila, funciones y estructuras
+              |
+              v
+Optimización por mirilla
+              |
+              v
+Pestaña MIPS -> copiar / comparar / exportar .asm
+              |
+              v
+MARS 4.5 (ejecución externa)
+```
+
+La generación MIPS **consume el TAC producido por el Proyecto 2**, no traduce directamente desde el texto fuente. El análisis léxico y sintáctico utiliza **ANTLR**, no un parser manual.
+
+## Interfaz gráfica
+
+El IDE Swing permite escribir o abrir archivos `.cps`, guardarlos y compilarlos. Incluye seis pestañas:
+
+| Pestaña | Contenido |
+| --- | --- |
+| **Problemas** | Diagnósticos léxicos, sintácticos y semánticos, con líneas y columnas. |
+| **TAC** | Instrucciones de tres direcciones generadas. |
+| **Árbol** | Visualización navegable del árbol sintáctico. |
+| **Símbolos** | Tabla de símbolos, tipos y ámbitos. |
+| **Runtime** | Registros de activación y estructuras de clases. |
+| **MIPS** | Ensamblador optimizado, versión sin optimizar y opciones **Copiar** y **Guardar .asm**. |
+
+Si existen errores léxicos, sintácticos o semánticos, no se publica TAC ni MIPS. Si el TAC es válido pero el backend MIPS no soporta una construcción, se informa de la limitación sin mostrar ensamblador parcial como válido.
+
+## Backend MIPS y arquitectura
+
+| Paquete / archivo | Responsabilidad |
+| --- | --- |
+| `compiler/Compilador.java` | Pipeline de análisis y generación TAC. |
+| `tac/` | Representación intermedia, temporales, etiquetas y registros de activación. |
+| `mips/GeneradorMIPS.java` | Fachada para traducir un `ResultadoCompilacion` a MIPS. |
+| `mips/TraductorTACProvisional.java` | Traducción del TAC mediante los componentes del backend. |
+| `mips/AsignadorRegistros.java` | Administración y asignación de registros. |
+| `mips/MarcoPilaMIPS.java` | Organización de pila y marcos de activación. |
+| `mips/GeneradorFuncionesMIPS.java` | Llamadas, parámetros, retornos y recursión. |
+| `mips/GeneradorEstructurasMIPS.java` | Arreglos, objetos, herencia y excepciones. |
+| `mips/RuntimeMIPS.java` | Soporte de ejecución en ensamblador. |
+| `mips/OptimizadorMirilla.java` | Transformaciones locales de código MIPS. |
+| `ide/CompiscriptIDE.java` | Ventana principal y coordinación de la compilación. |
+| `ide/PanelMIPS.java` | Visualización y exportación de ensamblador. |
+
+Consultar también `docs/ARQUITECTURA.md`, `docs/MIPS_FUNCIONES.md` y `docs/MIPS_INTEGRACION_RUTH.md` para detalles técnicos. Los layouts de TAC son posiciones lógicas y el backend los adapta a su representación MIPS.
+
+## Optimizaciones por mirilla
+
+El optimizador incluye nueve reglas: `move-identico`, `addiu-cero`, `addu-cero`, `subu-cero`, `or-cero`, `shift-cero`, `salto-siguiente`, `li-repetido` y `li-cero`.
+
+En `examples/mips/mirilla_demo.cps`, la validación realizada activó **seis reglas diferentes**: `move-identico`, `addu-cero`, `subu-cero`, `salto-siguiente`, `li-repetido` y `li-cero`. Desde el IDE es posible comparar el código antes y después de optimizar.
+
+La ejecución de `mirilla_demo.asm` en MARS produjo:
+
+```text
+7
+7
+0
+7
+```
+
+## Pruebas y validación
+
+El repositorio incluye pruebas JUnit 5 para análisis, TAC, registros, pila, funciones, estructuras y optimización MIPS, además de programas `.cps` con archivos `.expected`.
+
+**Validación integral (recomendada):**
+
+```bash
+bash scripts/verificar-mips.sh
+```
+
+El script prepara MARS, ejecuta las pruebas, genera ensambladores y contrasta las salidas de los ejemplos. En la ejecución verificada del 16/11/2026: **327 pruebas aprobadas** y mensaje `Pruebas y equivalencia MIPS verificadas`.
+
+**Ejemplos MIPS:**
+
+| Programa | Objetivo |
+| --- | --- |
+| `examples/mips/arreglos.cps` | Arreglos y `foreach`; salida comprobada: `13`. |
+| `examples/mips/objetos_herencia.cps` | Objetos y herencia. |
+| `examples/mips/excepciones.cps` | Manejo de excepciones. |
+| `examples/mips/funciones_recursion.cps` | Funciones y recursividad. |
+| `examples/mips/recursion_locales.cps` | Recursión con variables locales. |
+| `examples/mips/mirilla_demo.cps` | Demostración de seis transformaciones por mirilla. |
+
+Los resultados esperados exactos de los demás ejemplos se encuentran en sus respectivos archivos `.expected`.
+
+**Recuperación de errores:** se probó desde el IDE un programa con dos expresiones incompletas; el compilador reportó dos errores sintácticos y limpió las vistas TAC y MIPS. Se recomienda ampliar las pruebas con errores léxicos y semánticos múltiples y casos de recuperación más complejos.
+
+## Limitaciones conocidas
+
+El backend MIPS actual no implementa todas las construcciones del lenguaje con la misma cobertura que el análisis y TAC. En particular, se ha observado el rechazo de la representación `float` y existen restricciones en determinadas operaciones con cadenas y funciones anidadas. Estas limitaciones deben comunicarse durante la demostración; no equivalen a errores del parser o de TAC.
+
+## Estructura de ramas
+
+- `main`: base del Proyecto 1 (análisis semántico).
+- `proyecto-2-tac`: Proyecto 2 (código intermedio TAC).
+- **`proyecto-3-mips`**: Proyecto 3 (backend MIPS e integración gráfica).
+
+Para la entrega del Proyecto 3, utilizar la rama **`proyecto-3-mips`**. El historial de Git identifica las contribuciones individuales.
 
 ## Integrantes
 
@@ -510,7 +912,4 @@ El compilador permite recorrer el flujo desde un programa escrito en Compiscript
 
 ---
 
-<p align="center">
-  <b>Universidad del Valle de Guatemala</b><br/>
-  Construcción de Compiladores
-</p>
+**Universidad del Valle de Guatemala — Construcción de Compiladores — Proyecto 03 (2026)**
